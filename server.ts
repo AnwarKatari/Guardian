@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import axios from "axios";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
@@ -13,11 +14,73 @@ const BASE_PATH = process.cwd();
 // SYSTEM_KEY: Ai-POWERED Tactical Relay Key
 const SMS_KEY = process.env.SMS_ONLINE_GH_KEY;
 
+// Initialize AI if key exists
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
+
+  // AI BIO GENERATION ENDPOINT
+  app.post("/api/ai/generate-bio", async (req, res) => {
+    const { displayName, currentBio } = req.body;
+
+    if (!genAI) {
+      return res.status(503).json({ 
+        status: "error", 
+        message: "AI capability is not initialized on this server (Missing GEMINI_API_KEY)." 
+      });
+    }
+
+    try {
+      const response = await (genAI as any).models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: `You are the Ai-POWERED Security Assistant. 
+        Write a professional, tactical, and reassuring user bio for the 'Ai-POWERED HUMAN SAFETY ALERT' app. 
+        The bio should reflect a sense of being 'prepared, vigilant, and community-focused'. 
+        If the user has an existing bio, improve it. If not, create one from scratch.
+        Keep it under 150 characters. 
+        User identity: ${displayName}. 
+        Current status: ${currentBio || 'New Recruit'}.
+        DO NOT include quotes or introductory text. Just the bio string.`,
+      });
+
+      const text = response.text?.trim() || "";
+      res.json({ status: "success", bio: text });
+    } catch (error: any) {
+      console.error("[AI_ERR] Bio generation failed:", error);
+      res.status(500).json({ status: "error", message: "Failed to generate bio via AI." });
+    }
+  });
+
+  app.post("/api/ai/analyze-threat", async (req, res) => {
+    const { description, location } = req.body;
+
+    if (!genAI) {
+      return res.status(503).json({ 
+        status: "error", 
+        message: "AI capability is not initialized." 
+      });
+    }
+
+    try {
+      const response = await (genAI as any).models.generateContent({
+        model: "gemini-1.5-flash",
+        config: {
+          systemInstruction: "You are a safety expert. Analyze the following reported incident and provide safety tips and a threat assessment level (Low, Medium, High, Critical). Keep it concise.",
+        },
+        contents: `Incident: ${description}\nLocation: ${location}`,
+      });
+
+      const text = response.text || "Failed to analyze incident.";
+      res.json({ status: "success", analysis: text });
+    } catch (error: any) {
+      console.error("[AI_ERR] Threat analysis failed:", error);
+      res.status(500).json({ status: "error", message: "Failed to analyze threat via AI." });
+    }
+  });
 
   // TACTICAL SMS DISPATCH ENDPOINT
   app.post("/api/sms/dispatch", async (req, res) => {

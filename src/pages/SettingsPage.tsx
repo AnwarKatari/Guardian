@@ -29,7 +29,7 @@ import {
   Sparkles,
   Edit2
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import axios from 'axios';
 import { auth, storage } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useSafety } from '../contexts/SafetyEngineContext';
@@ -46,7 +46,6 @@ import { EMERGENCY_MATRIX } from '../constants/emergencyMatrix';
 import { COUNTRIES, getCountryByCode } from '../constants/countries';
 
 export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const { user, profile, isLocalMode, updateProfile } = useAuth();
   const { micStatus, lastSOSConfirmed, setLastSOSConfirmed } = useSafety();
   const [isUpdating, setIsUpdating] = useState(false);
@@ -105,23 +104,21 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const generateBio = async () => {
     setIsGeneratingBio(true);
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `You are the Ai-POWERED Security Assistant. 
-        Write a professional, tactical, and reassuring user bio for the 'Ai-POWERED HUMAN SAFETY ALERT' app. 
-        The bio should reflect a sense of being 'prepared, vigilant, and community-focused'. 
-        If the user has an existing bio, improve it. If not, create one from scratch.
-        Keep it under 150 characters. 
-        User identity: ${displayName}. 
-        Current status: ${bio || 'New Recruit'}.
-        DO NOT include quotes or introductory text. Just the bio string.`,
+      const response = await axios.post("/api/ai/generate-bio", {
+        displayName: displayName || "New User",
+        currentBio: bio
       });
-      const generatedBio = response.text?.trim() || "";
-      setBio(generatedBio);
-      setSuccessMessage("BIO OPTIMIZED BY AI");
-      setTimeout(() => setSuccessMessage(null), 3000);
+      
+      if (response.data.status === "success") {
+        const generatedBio = response.data.bio;
+        setBio(generatedBio);
+        setSuccessMessage("BIO OPTIMIZED BY AI");
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
     } catch (err) {
       console.error("AI Generation failed:", err);
+      // Fallback message if server AI fails
+      setBio(bio || "Prepared and vigilant security user.");
     } finally {
       setIsGeneratingBio(false);
     }
