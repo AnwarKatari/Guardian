@@ -1,0 +1,17 @@
+{
+  "name": "Ai-POWERED HUMAN SAFETY ALERT",
+  "short_name": "Ai-POWERED",
+  "description": "Tactical Personal Safety and Emergency Response System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ef4444",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1067/1067346.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

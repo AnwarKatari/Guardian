@@ -1,0 +1,273 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and safety settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "lastLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        },
+        "emergencyContacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "phone": { "type": "string" }
+            }
+          }
+        },
+        "safetyZones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" },
+              "radius": { "type": "number" }
+            }
+          }
+        },
+        "isSharingLocation": { "type": "boolean" },
+        "trustedContactIds": { "type": "array", "items": { "type": "string" } },
+        "evidenceSync": { "type": "boolean" },
+        "customSOSMessage": { "type": "string" },
+        "onboardingComplete": { "type": "boolean" },
+        "lastLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "fakeCallSettings": {
+          "type": "object",
+          "properties": {
+            "callerName": { "type": "string" },
+            "triggerDelay": { "type": "number" },
+            "voiceType": { "type": "string", "enum": ["masculine", "feminine", "neutral"] }
+          }
+        },
+        "offlineMaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" },
+              "radius": { "type": "number" },
+              "downloadedAt": { "type": "string", "format": "date-time" },
+              "sizeMB": { "type": "number" }
+            }
+          }
+        },
+        "isPrivacyMode": { "type": "boolean" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "voiceSentinelEnabled": { "type": "boolean" },
+        "securityOverlayActive": { "type": "boolean" },
+        "autoCheckInInterval": { "type": "number" },
+        "lastCheckInAt": { "type": "string", "format": "date-time" },
+        "followingIds": { "type": "array", "items": { "type": "string" } },
+        "followerIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["uid", "email"]
+    },
+    "Incident": {
+      "title": "Incident",
+      "description": "Reported safety incident or threat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "type": { "type": "string", "enum": ["theft", "harassment", "accident", "threat", "other"] },
+        "description": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        },
+        "mediaUrls": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "isResolved": { "type": "boolean" },
+        "aiAnalysis": { "type": "string" }
+      },
+      "required": ["id", "reporterId", "type", "location", "timestamp"]
+    },
+    "Alert": {
+      "title": "Alert",
+      "description": "Emergency SOS alert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "resolved", "false_alarm"] },
+        "message": { "type": "string" }
+      },
+      "required": ["id", "senderId", "location", "timestamp"]
+    },
+    "SOSHistory": {
+      "title": "SOS History",
+      "description": "Historical log of all SOS attempts (success/fail)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["SUCCESS", "FAILED"] },
+        "message": { "type": "string" },
+        "reason": { "type": "string" },
+        "relay": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "contactsNotified": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "phone": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["userId", "timestamp", "status"]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Safety connections between users",
+      "type": "object",
+      "properties": {
+        "requesterId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requesterId", "receiverId", "status", "timestamp"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Safety status update or community post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["UPDATE", "STATUS", "CHECK_IN", "INTEL"] },
+        "likes": { "type": "array", "items": { "type": "string" } },
+        "commentCount": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "label": { "type": "string" }
+          }
+        }
+      },
+      "required": ["authorId", "content", "timestamp"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a tactical post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "content", "timestamp"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A private safety communication",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["senderId", "receiverId", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "sos_history": {
+      "schema": "SOSHistory",
+      "description": "Historical log of all SOS triggers"
+    },
+    "users": {
+      "schema": "User",
+      "description": "All registered users"
+    },
+    "incidents": {
+      "schema": "Incident",
+      "description": "Community reported incidents"
+    },
+    "alerts": {
+      "schema": "Alert",
+      "description": "Active emergency SOS alerts"
+    },
+    "friendships": {
+      "schema": "Friendship",
+      "description": "Alliances between operators"
+    },
+    "posts": {
+      "schema": "Post",
+      "description": "Safety posts and updates"
+    },
+    "comments": {
+      "schema": "Comment",
+      "description": "Comments on tactical posts"
+    },
+    "messages": {
+      "schema": "Message",
+      "description": "Private messages between operators"
+    },
+    "system_logs": {
+      "schema": "object",
+      "description": "Audit logs for operations"
+    }
+  }
+}

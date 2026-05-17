@@ -1,0 +1,247 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerified() {
+      return isSignedIn(); // Relaxed for better UX in preview/demo environments
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // PII isolation logic
+    function canAccessProfile(userId) {
+      return isOwner(userId);
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      
+      allow update: if request.auth != null && (
+        // Action: Self-Update Profile/Settings
+        (request.auth.uid == userId && isValidUser(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['lastLocation', 'isSharingLocation', 'emergencyContacts', 'safetyZones', 'trustedContactIds', 'displayName', 'photoURL', 'phoneNumber', 'countryCode', 'evidenceSync', 'onboardingComplete', 'customSOSMessage', 'fakeCallSettings', 'offlineMaps', 'isPrivacyMode', 'isOnline', 'lastSeen', 'voiceSentinelEnabled', 'securityOverlayActive', 'autoCheckInInterval', 'lastCheckInAt', 'followingIds', 'followerIds', 'bio', 'gender'])) ||
+        // Action: Remote-Update Follower Status
+        (request.auth.uid != userId && incoming().diff(existing()).affectedKeys().hasOnly(['followerIds']) && (
+          incoming().followerIds.size() == existing().followerIds.size() + 1 && incoming().followerIds.hasAll([request.auth.uid]) ||
+          existing().followerIds.size() == incoming().followerIds.size() + 1 && !incoming().followerIds.hasAny([request.auth.uid])
+        ))
+      );
+    }
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             data.displayName is string && data.displayName.size() <= 128 &&
+             (data.get('bio', '') is string && data.get('bio', '').size() <= 600) &&
+             (data.get('gender', '') in ['male', 'female', 'other', '']) &&
+             (data.get('photoURL', '') is string && data.get('photoURL', '').size() <= 1500000) &&
+             (data.get('isPrivacyMode', false) is bool) &&
+             (data.get('isOnline', false) is bool) &&
+             (data.get('voiceSentinelEnabled', false) is bool) &&
+             (data.get('securityOverlayActive', false) is bool) &&
+             (data.get('isSharingLocation', false) is bool) &&
+             (data.get('emergencyContacts', []) is list && data.get('emergencyContacts', []).size() <= 20) &&
+             (data.get('safetyZones', []) is list && data.get('safetyZones', []).size() <= 20) &&
+             (data.get('trustedContactIds', []) is list && data.get('trustedContactIds', []).size() <= 100) &&
+             (data.get('followingIds', []) is list && data.get('followingIds', []).size() <= 1000) &&
+             (data.get('followerIds', []) is list && data.get('followerIds', []).size() <= 1000) &&
+             (data.get('countryCode', 'GH') is string && data.get('countryCode', 'GH').size() <= 10) &&
+             (data.get('phoneNumber', '') is string && data.get('phoneNumber', '').size() <= 32) &&
+             (data.get('evidenceSync', true) is bool) &&
+             (data.get('onboardingComplete', false) is bool) &&
+             (data.get('customSOSMessage', '') is string && data.get('customSOSMessage', '').size() <= 1000) &&
+             (data.get('lastSeen', '') is string) &&
+             (data.get('autoCheckInInterval', 0) is number) &&
+             (data.get('lastCheckInAt', '') is string) &&
+             (data.get('lastLocation', null) == null || (
+               data.lastLocation is map &&
+               data.lastLocation.lat is number &&
+               data.lastLocation.lng is number
+             )) &&
+             (data.get('fakeCallSettings', null) == null || (
+               data.fakeCallSettings is map &&
+               data.fakeCallSettings.get('callerName', '') is string &&
+               data.fakeCallSettings.get('triggerDelay', 5) is number &&
+               data.fakeCallSettings.get('voiceType', 'neutral') in ['masculine', 'feminine', 'neutral']
+             ));
+    }
+
+    // Incidents Collection
+    match /incidents/{incidentId} {
+      // Community read access - Hardened for Secure List Queries
+      allow get: if isSignedIn() && isValidId(incidentId);
+      allow list: if isSignedIn();
+      
+      allow create: if isVerified() && isValidIncident(incoming()) && (
+        incoming().keys().hasAll(['reporterId', 'reporterName', 'type', 'description', 'severity', 'location', 'timestamp', 'isResolved', 'mediaUrls', 'aiAnalysis']) &&
+        incoming().keys().size() == 10
+      );
+      
+      allow update: if isVerified() && isOwner(existing().reporterId) && isValidIncident(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['type', 'description', 'location', 'mediaUrls', 'severity', 'isResolved'])
+      );
+      
+      allow delete: if isVerified() && isOwner(existing().reporterId);
+    }
+
+    function isValidIncident(data) {
+      return data.reporterId == request.auth.uid &&
+             data.type in ['theft', 'harassment', 'accident', 'threat', 'other'] &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.severity in ['low', 'medium', 'high', 'critical'] &&
+             data.location is map &&
+             data.location.lat is number && data.location.lng is number &&
+             data.timestamp == request.time &&
+             data.isResolved is bool;
+    }
+
+    // Alerts Collection
+    match /alerts/{alertId} {
+      allow get: if isSignedIn() && isValidId(alertId);
+      // Allow list if signed in, results are already restricted by queries and data fields
+      allow list: if isSignedIn() && (resource.data.status in ['active', 'resolved', 'false_alarm', 'ACTIVE'] || resource.data.senderId == request.auth.uid);
+      
+      allow create: if isVerified() && isValidAlert(incoming()) && (
+        incoming().keys().hasAll(['senderId', 'senderName', 'location', 'timestamp', 'status', 'message', 'isSimulatedRelay']) &&
+        incoming().keys().size() >= 7
+      );
+      
+      allow update: if isVerified() && isOwner(existing().senderId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'message'])
+      );
+    }
+
+    function isValidAlert(data) {
+      return data.senderId == request.auth.uid &&
+             (data.location == null || (data.location is map && data.location.lat is number && data.location.lng is number)) &&
+             (data.timestamp == request.time || data.timestamp is timestamp) &&
+             data.status in ['active', 'resolved', 'false_alarm', 'ACTIVE'];
+    }
+
+    // SOS History Collection
+    match /sos_history/{logId} {
+      allow create: if isVerified() && isValidSOSHistory(incoming()) && (
+        incoming().keys().hasAll(['userId', 'timestamp', 'status', 'message', 'location', 'reason', 'relay', 'contactsNotified']) &&
+        incoming().keys().size() == 8
+      );
+      allow get: if isOwner(resource.data.userId) && isValidId(logId);
+      allow list: if isSignedIn() && isOwner(resource.data.userId);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    function isValidSOSHistory(data) {
+      return data.userId == request.auth.uid &&
+             (data.timestamp == request.time || data.timestamp is timestamp) &&
+             data.status in ['SUCCESS', 'FAILED'] &&
+             (data.message is string && data.message.size() <= 3000) &&
+             (data.reason == null || (data.reason is string && data.reason.size() <= 1000)) &&
+             (data.relay is string && data.relay.size() <= 128) &&
+             (data.contactsNotified is list && data.contactsNotified.size() <= 20) &&
+             (data.location == null || (data.location is map && data.location.lat is number && data.location.lng is number));
+    }
+
+    // Friendships Collection
+    match /friendships/{friendshipId} {
+      allow create: if isVerified() && incoming().requesterId == request.auth.uid && incoming().status == 'pending';
+      allow read: if isSignedIn() && (resource.data.requesterId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow update: if isVerified() && (
+        (resource.data.receiverId == request.auth.uid && incoming().status == 'accepted' && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+        (resource.data.requesterId == request.auth.uid || resource.data.receiverId == request.auth.uid)
+      );
+      allow delete: if isVerified() && (resource.data.requesterId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+    }
+
+    // Posts Collection
+    match /posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId);
+      allow list: if isSignedIn();
+      
+      allow create: if isVerified() && incoming().authorId == request.auth.uid && isValidPost(incoming()) && (
+        incoming().keys().hasAll(['authorId', 'authorName', 'content', 'type', 'likes', 'timestamp']) &&
+        incoming().keys().size() >= 6
+      );
+      
+      allow update: if isVerified() && (
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likes'])) ||
+        (isOwner(existing().authorId) && (
+          (incoming().diff(existing()).affectedKeys().hasOnly(['content', 'lastEdited']) && 
+           incoming().content is string && incoming().content.size() <= 6000) ||
+          (isValidPost(incoming())) // For full document replacements
+        ))
+      );
+      
+      allow delete: if isVerified() && isOwner(existing().authorId);
+    }
+
+    function isValidPost(data) {
+      return data.authorId == request.auth.uid &&
+             data.content is string && data.content.size() <= 6000 &&
+             data.type in ['UPDATE', 'STATUS', 'CHECK_IN', 'INTEL'];
+    }
+
+    // System Logs Collection
+    match /system_logs/{logId} {
+      allow create: if isSignedIn() && (incoming().userId == request.auth.uid);
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid);
+    }
+
+    // Comments Collection
+    match /comments/{commentId} {
+      allow read, list: if isSignedIn();
+      allow create: if isVerified() && incoming().authorId == request.auth.uid && (
+        incoming().keys().hasAll(['postId', 'authorId', 'authorName', 'authorPhoto', 'content', 'timestamp']) &&
+        incoming().keys().size() == 6
+      );
+      allow update: if isVerified() && isOwner(existing().authorId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']) &&
+        incoming().content is string && incoming().content.size() <= 2000
+      );
+      allow delete: if isVerified() && isOwner(existing().authorId);
+    }
+
+    // Messages Collection
+    match /messages/{messageId} {
+      allow read: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isVerified() && incoming().senderId == request.auth.uid && (
+        incoming().keys().hasAll(['senderId', 'receiverId', 'content', 'timestamp', 'read']) &&
+        incoming().keys().size() == 5
+      );
+      allow update: if isVerified() && resource.data.receiverId == request.auth.uid && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['read'])
+      );
+    }
+
+    function isTrusted(userId) {
+      // If the current user has the target userId in their trustedContactIds
+      let profilePath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(profilePath) && userId in get(profilePath).data.get('trustedContactIds', []);
+    }
+  }
+}

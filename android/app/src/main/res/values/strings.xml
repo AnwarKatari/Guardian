@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AiPowered</string>
+    <string name="title_activity_main">AiPowered</string>
+    <string name="package_name">com.aipowered.safety</string>
+    <string name="custom_url_scheme">com.aipowered.safety</string>
+</resources>

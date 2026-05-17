@@ -1,0 +1,6 @@
+[
+	{
+		"pkg": "@byteowls/capacitor-sms",
+		"classpath": "com.byteowls.capacitor.sms.SmsManagerPlugin"
+	}
+]

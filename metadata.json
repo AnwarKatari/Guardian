@@ -1,0 +1,13 @@
+{
+  "name": "Ai-POWERED HUMAN SAFETY ALERT",
+  "description": "AI-Powered Human Safety Alert - Advanced personal safety platform featuring real-time location sharing, emergency SOS protocols, safety updates, and community-driven protection.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation",
+    "contacts",
+    "sms",
+    "vibrate",
+    "notifications"
+  ]
+}
