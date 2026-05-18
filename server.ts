@@ -261,6 +261,8 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[Ai-POWERED_OS] Server running at http://0.0.0.0:${PORT}`);
   });
+
+  return app;
 }
 
-startServer();
+export default startServer();
