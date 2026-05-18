@@ -1,5 +1,9 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="512" height="512" rx="128" fill="#09090b"/>
-  <path d="M256 80L100 144V240C100 336.1 166.5 425.4 256 452C345.5 425.4 412 336.1 412 240V144L256 80Z" fill="#3b82f6" fill-opacity="0.2" stroke="#3b82f6" stroke-width="20" stroke-linejoin="round"/>
-  <path d="M256 160V280M256 340H256.02" stroke="#3b82f6" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M0 64H512M0 128H512M0 192H512M0 256H512M0 320H512M0 384H512M0 448H512" stroke="white" stroke-opacity="0.05" stroke-width="1"/>
+  <path d="M64 0V512M128 0V512M192 0V512M256 0V512M320 0V512M384 0V512M448 0V512" stroke="white" stroke-opacity="0.05" stroke-width="1"/>
+  <path d="M256 80L100 144V240C100 336.1 166.5 425.4 256 452C345.5 425.4 412 336.1 412 240V144L256 80Z" fill="#3b82f6" fill-opacity="0.1" stroke="#3b82f6" stroke-width="24" stroke-linejoin="round"/>
+  <path d="M256 160V290" stroke="#3b82f6" stroke-width="48" stroke-linecap="round"/>
+  <circle cx="256" cy="360" r="28" fill="#3b82f6"/>
+  <path d="M440 40L410 80H445L415 120" stroke="#60a5fa" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
 </svg>

@@ -190,8 +190,8 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
             isSuccessfullySent = true;
             usedRelay = data.relay;
           } else {
-            const detailedError = data.lastError || data.message || data.error;
-            failureReason = `ARKESEL_REJECTION: ${detailedError}`;
+            const detailedError = data.details ? JSON.stringify(data.details) : (data.message || data.error);
+            failureReason = `RELAY_REJECTION: ${detailedError}`;
             addLog(`SERVER_RELAY_WARN: ${failureReason}`);
           }
         } catch (serverErr: any) {

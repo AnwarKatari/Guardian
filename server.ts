@@ -101,53 +101,51 @@ async function startServer() {
       let cleaned = num.replace(/\D/g, '');
       if (cleaned.startsWith('0') && cleaned.length === 10) return `233${cleaned.substring(1)}`;
       if (cleaned.length === 9) return `233${cleaned}`;
+      // Arkesel and SMSOnlineGH prefer numbers without the '+' but with country code
       return cleaned;
     };
 
-    const normalizedNumbers = phoneNumbers.map(normalizeGH);
+    const normalizedNumbers = phoneNumbers.map(normalizeGH).filter(n => n.length >= 10);
     console.log(`[TACTICAL_RELAY] Target units normalized: ${normalizedNumbers.join(", ")}`);
     
     // SENDER ID OPTIMIZATION:
     // Alphanumeric Sender IDs in Ghana MUST be pre-registered (max 11 chars).
     // The user requested: "shorten the name and if there is a space put - between them"
     const sanitizeSenderId = (name: string) => {
-      if (!name) return "Arkesel";
+      if (!name) return "SafetyOS";
       
-      // User Custom Logic: Replace spaces with '-'
-      let formatted = name.trim().replace(/\s+/g, "-");
+      // Strict Alphanumeric is safer for many gateways
+      let formatted = name.trim().replace(/\s+/g, "");
       
-      // Remove restricted characters (Ghana NCA allows alphanumeric + some symbols occasionally but '-' is safe)
-      formatted = formatted.replace(/[^a-zA-Z0-9-]/g, "");
+      // Remove all non-alphanumeric (dashes can cause rejection if not pre-approved)
+      formatted = formatted.replace(/[^a-zA-Z0-9]/g, "");
       
       // Shorten to protocol maximum (11 chars)
       const sanitized = formatted.substring(0, 11);
       
-      // Ensure we don't end with a trailing dash which can look like a truncation error
-      const finalSender = sanitized.endsWith("-") ? sanitized.slice(0, -1) : sanitized;
-      
-      return finalSender || "Arkesel";
+      return sanitized || "SafetyOS";
     };
 
     const tacticalSender = sanitizeSenderId(senderName);
-    console.log(`[TACTICAL_RELAY] Final Sender ID: ${tacticalSender} (Original: ${senderName})`);
+    console.log(`[TACTICAL_RELAY] Tactical Sender ID: ${tacticalSender} (Original: ${senderName})`);
 
     // VALIDATION: Recipients Check
     if (normalizedNumbers.length === 0) {
       return res.status(400).json({ 
         status: "error", 
-        message: "No valid phone numbers detected in your emergency circle. Please add contacts with country codes." 
+        message: "No valid phone numbers detected. Use format: 024XXXXXXX or 23324XXXXXXX" 
       });
     }
 
-    // If no Arkesel key is provided, enter simulation mode
-    if (!arkeselKey) {
-      console.log(`[RELAY_SIMULATION] No ARKESEL_API_KEY detected. Entering simulation mode.`);
+    // If no keys are provided, enter simulation mode
+    if (!arkeselKey && !smsOnlineKey) {
+      console.log(`[RELAY_SIMULATION] No API keys detected. Entering simulation mode.`);
       await new Promise(resolve => setTimeout(resolve, 800));
       return res.json({
         status: "success",
         relay: "SIMULATION_MODE",
         timestamp: new Date().toISOString(),
-        message: "DEMO (Arkesel Missing): Signal simulated successfully.",
+        message: "DEMO: Signals simulated successfully (No gateway keys found).",
         unitsReached: phoneNumbers.length
       });
     }
@@ -155,78 +153,92 @@ async function startServer() {
     // DISPATCH CHAIN
     let success = false;
     let relayUsed = "";
-    let lastError = null;
+    let lastErrorDetails: any = null;
 
-    // 1. PRIMARY ARKESEL RELAY
-    try {
-      console.log(`[RELAY] Attempting Arkesel v2 dispatch with sender: ${tacticalSender}`);
-      
-      const response = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
-        sender: tacticalSender,
-        recipients: normalizedNumbers,
-        message: message
-      }, {
-        headers: { 'api-key': arkeselKey },
-        timeout: 15000 // Increased timeout for reliability
-      });
-
-      // Arkesel returns 201 for success usually, or code 101 for successful dispatch in some v2 versions
-      // They also return status: 'success'
-      const resData = response.data;
-      if (resData && (resData.status === "success" || resData.code === "1000" || resData.code === 1000 || resData.code === 101 || response.status === 201)) {
-        success = true;
-        relayUsed = "ARKESEL_v2";
-        console.log(`[RELAY_SUCCESS] Arkesel v2 dispatch confirmed: ${JSON.stringify(resData)}`);
-      } else {
-        console.warn("[RELAY_WARN] Arkesel rejected request:", resData);
-        const errorCode = resData?.code || resData?.status || "UNKNOWN";
-        const errorMsg = resData?.message || resData?.error || "No specific error message from gateway.";
-        
-        lastError = `Arkesel rejection (${errorCode}): ${errorMsg}`;
-        
-        if (errorCode === "1005" || errorCode === 1005 || errorMsg.includes("Sender ID")) {
-          lastError += " | Action: Register Sender ID with Arkesel.";
-        }
-      }
-    } catch (e: any) {
-      const errorData = e.response?.data;
-      const errorStatus = e.response?.status;
-      console.error("[RELAY_ERR] Arkesel primary failed:", errorData || e.message);
-      
-      lastError = errorData ? 
-        `Gateway Error (${errorStatus}): ${JSON.stringify(errorData)}` : 
-        `Network/Internal Error: ${e.message}`;
-    }
-
-    // 2. FALLBACK RELAY: Attempt with default 'Arkesel' sender ID if the first failed and was custom
-    if (!success && tacticalSender !== "Arkesel") {
+    // 1. PRIMARY ARKESEL RELAY (V2)
+    if (arkeselKey) {
       try {
-        console.log(`[RELAY_FALLBACK] Attempting Arkesel v2 dispatch with default sender: Arkesel`);
+        console.log(`[RELAY_ARKESEL] Attempting dispatch via V2 with sender: ${tacticalSender}`);
         
-        const fallbackResponse = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
-          sender: "Arkesel",
+        const response = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
+          sender: tacticalSender,
           recipients: normalizedNumbers,
           message: message
         }, {
           headers: { 'api-key': arkeselKey },
-          timeout: 15000
+          timeout: 12000
         });
 
-        const fbData = fallbackResponse.data;
-        if (fbData && (fbData.status === "success" || fbData.code === "1000" || fbData.code === 1000 || fbData.code === 101 || fallbackResponse.status === 201)) {
+        const resData = response.data;
+        // Arkesel V2 success codes: 1000, 101, or status 'success'
+        if (resData && (resData.status === "success" || resData.code === "1000" || resData.code === 1000 || resData.code === 101)) {
           success = true;
-          relayUsed = "ARKESEL_v2_FALLBACK";
-          console.log(`[RELAY_SUCCESS] Arkesel fallback successful.`);
+          relayUsed = "ARKESEL_v2";
+          console.log(`[RELAY_SUCCESS] Arkesel v2 confirmed.`);
         } else {
-          console.error("[RELAY_FALLBACK_ERR] Fallback gateway rejection:", fbData);
+          console.warn("[RELAY_WARN] Arkesel rejected request:", JSON.stringify(resData));
+          lastErrorDetails = resData;
+          
+          // 2. FALLBACK ARKESEL: Attempt with default 'Arkesel' sender if custom failed
+          if (tacticalSender !== "Arkesel") {
+            try {
+              console.log(`[RELAY_ARKESEL] Fallback with default sender 'Arkesel'...`);
+              const fbRes = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
+                sender: "Arkesel",
+                recipients: normalizedNumbers,
+                message: message
+              }, {
+                headers: { 'api-key': arkeselKey },
+                timeout: 10000
+              });
+              
+              if (fbRes.data && (fbRes.data.status === "success" || fbRes.data.code === 1000)) {
+                success = true;
+                relayUsed = "ARKESEL_v2_FALLBACK";
+                console.log(`[RELAY_SUCCESS] Arkesel fallback successful.`);
+              }
+            } catch (innerE) {
+               console.error("[RELAY_FAILED] Arkesel fallback also failed.");
+            }
+          }
         }
-      } catch (fallbackError: any) {
-        console.error("[RELAY_FALLBACK_ERR] Fallback failed:", fallbackError.response?.data || fallbackError.message);
+      } catch (e: any) {
+        lastErrorDetails = e.response?.data || { message: e.message };
+        console.error("[RELAY_ERR] Arkesel primary failed:", JSON.stringify(lastErrorDetails));
+      }
+    }
+
+    // 3. TERTIARY RELAY: SMS ONLINE GH (If Arkesel failed or was skipped)
+    if (!success && smsOnlineKey) {
+      try {
+        console.log(`[RELAY_SMSONLINE] Attempting tertiary dispatch via SMS Online GH...`);
+        
+        // SMS Online GH V4 Endpoint
+        const response = await axios.post(`https://api.smsonlinegh.com/v4/message/sms/send`, {
+          text: message,
+          destinations: normalizedNumbers,
+          sender: tacticalSender.substring(0, 11)
+        }, {
+          headers: { 
+            'Authorization': `Bearer ${smsOnlineKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 12000
+        });
+
+        if (response.status === 200 || response.status === 201) {
+          success = true;
+          relayUsed = "SMS_ONLINE_GH";
+          console.log(`[RELAY_SUCCESS] SMS Online GH dispatch confirmed.`);
+        }
+      } catch (e: any) {
+        const errData = e.response?.data || e.message;
+        console.error("[RELAY_ERR] SMS Online GH tertiary failed:", JSON.stringify(errData));
+        if (!lastErrorDetails) lastErrorDetails = errData;
       }
     }
 
     if (success) {
-      console.log(`[RELAY_SUCCESS] Dispatched via ${relayUsed}`);
       return res.json({ 
         status: "success", 
         relay: relayUsed,
@@ -234,14 +246,15 @@ async function startServer() {
       });
     }
 
-    // If we reached here, everything failed
-    res.status(500).json({ 
+    // If we reached here, primary and all fallbacks failed
+    res.status(502).json({ 
       status: "error", 
-      error: "RELAY_NETWORK_FAILURE",
-      message: "Arkesel gateway failed or is not authorized. Check if Sender ID is registered.",
-      lastError
+      error: "RELAY_PROTOCOL_FAILURE",
+      message: "Security relay could not reach gateway. Verify API Balance and Sender ID registration.",
+      details: lastErrorDetails
     });
   });
+
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
