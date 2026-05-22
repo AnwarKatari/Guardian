@@ -15,13 +15,6 @@ Ai-POWERED is a high-performance personal safety application built for high-stak
 
 ## 🚀 Environment & Setup
 
-### AI Studio Deployment
-**No manual configuration required.**
-This application is pre-configured for the Google AI Studio ecosystem.
-- **Environment Variables**: Managed automatically via the Secrets panel.
-- **Firebase**: Provisioned and linked via the `set_up_firebase` protocol.
-- **Database Rules**: Hardened Firestore and Storage rules are deployed automatically.
-
 ### Local Development (Export)
 If you export this code, follow these steps:
 1. **Node.js**: Ensure you are on version **22.0.0** or higher.

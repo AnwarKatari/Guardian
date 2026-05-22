@@ -42,6 +42,7 @@ export default function SafetyMap() {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [showDownloads, setShowDownloads] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [mapLayer, setMapLayer] = useState("road");
 
   useEffect(() => {
     if (!user) return;
@@ -155,6 +156,12 @@ export default function SafetyMap() {
           </motion.div>
         )}
       </div>
+      
+      {/* Layer Switcher */}
+      <div className="absolute top-4 left-4 z-[1001] flex gap-2">
+         <button onClick={() => setMapLayer("road")} className={cn("p-2 rounded-lg bg-white shadow-md text-xs font-bold", mapLayer === "road" ? "border-2 border-blue-500" : "")}>Road</button>
+         <button onClick={() => setMapLayer("satellite")} className={cn("p-2 rounded-lg bg-white shadow-md text-xs font-bold", mapLayer === "satellite" ? "border-2 border-blue-500" : "")}>Satellite</button>
+      </div>
 
       <MapContainer 
         center={center} 
@@ -164,8 +171,8 @@ export default function SafetyMap() {
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={mapLayer === "road" ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' : '&copy; <a href="https://www.arcgisonline.com/">ArcGIS</a>'}
+          url={mapLayer === "road" ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.png"}
         />
         
         <RecenterMap center={center} />

@@ -40,6 +40,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Trigger vibration for new high-severity alerts
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          if (data.status === 'ACTIVE') {
+            if (navigator.vibrate) {
+              // SOS vibration pattern: 3 shorts, 3 longs, 3 shorts
+              navigator.vibrate([100, 100, 100, 100, 100, 100, 300, 100, 300, 100, 300, 100, 100, 100, 100, 100, 100, 100]);
+            }
+          }
+        }
+      });
+
       const newNotifications: Notification[] = snapshot.docs.map(doc => {
         const data = doc.data();
         return {

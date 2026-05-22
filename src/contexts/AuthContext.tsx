@@ -119,6 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               securityOverlayActive: false,
               autoCheckInInterval: 0,
               lastCheckInAt: '',
+              bio: '',
+              gender: '',
               customSOSMessage: "EMERGENCY: I need help! My current location is attached.",
               fakeCallSettings: {
                 callerName: "Security Dispatch",

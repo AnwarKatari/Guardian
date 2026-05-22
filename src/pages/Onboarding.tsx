@@ -72,6 +72,10 @@ export default function Onboarding() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     
+    // Set immediate preview
+    const tempUrl = URL.createObjectURL(file);
+    setFormData(prev => ({ ...prev, photoURL: tempUrl }));
+    
     setIsUploading(true);
     // 5-second delay as requested
     const minDelay = new Promise(resolve => setTimeout(resolve, 5000));
@@ -81,7 +85,7 @@ export default function Onboarding() {
       if (isLocalMode) {
         setUploadStatus("Local Cryptography...");
         await new Promise(r => setTimeout(r, 1500));
-        url = URL.createObjectURL(file);
+        url = tempUrl;
       } else {
         setUploadStatus("Initializing Tunnel...");
         await new Promise(r => setTimeout(r, 1000));
@@ -101,6 +105,7 @@ export default function Onboarding() {
     } catch (err) {
       console.error(err);
       setError('Upload synchronization failed');
+      // Revert if upload failed, but ideally it should keep the preview if possible
     } finally {
       setIsUploading(false);
       setUploadStatus("Initializing...");
@@ -335,8 +340,11 @@ export default function Onboarding() {
                   className="relative group cursor-pointer"
                 >
                   <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-neutral-50 border-2 border-dashed border-neutral-200 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-500 shadow-xl shadow-blue-500/5 relative">
-                    {isUploading ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-blue-600 p-4">
+                    {formData.photoURL && (
+                      <img src={formData.photoURL} alt="Preview" className="w-full h-full object-cover" />
+                    )}
+                    {isUploading && (
+                      <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-blue-600/80 p-4">
                         <motion.div 
                           initial={{ width: "0%" }}
                           animate={{ width: "100%" }}
@@ -346,9 +354,8 @@ export default function Onboarding() {
                         <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
                         <span className="text-[8px] font-black text-white uppercase tracking-widest text-center italic">{uploadStatus}</span>
                       </div>
-                    ) : formData.photoURL ? (
-                      <img src={formData.photoURL} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
+                    )}
+                    {!isUploading && !formData.photoURL && (
                       <Camera className="w-10 h-10 text-neutral-200 group-hover:text-blue-600 transition-colors" />
                     )}
                   </div>

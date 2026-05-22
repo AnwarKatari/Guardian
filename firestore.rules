@@ -41,23 +41,23 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       
-      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow create: if isOwner(userId) && incoming().uid == request.auth.uid;
       
+      allow write: if isOwner(userId);
+      
+      // Allow remote-update for followers
       allow update: if request.auth != null && (
-        // Action: Self-Update Profile/Settings
-        (request.auth.uid == userId && isValidUser(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['lastLocation', 'isSharingLocation', 'emergencyContacts', 'safetyZones', 'trustedContactIds', 'displayName', 'photoURL', 'phoneNumber', 'countryCode', 'evidenceSync', 'onboardingComplete', 'customSOSMessage', 'fakeCallSettings', 'offlineMaps', 'isPrivacyMode', 'isOnline', 'lastSeen', 'voiceSentinelEnabled', 'securityOverlayActive', 'autoCheckInInterval', 'lastCheckInAt', 'followingIds', 'followerIds', 'bio', 'gender'])) ||
-        // Action: Remote-Update Follower Status
-        (request.auth.uid != userId && incoming().diff(existing()).affectedKeys().hasOnly(['followerIds']) && (
-          incoming().followerIds.size() == existing().followerIds.size() + 1 && incoming().followerIds.hasAll([request.auth.uid]) ||
-          existing().followerIds.size() == incoming().followerIds.size() + 1 && !incoming().followerIds.hasAny([request.auth.uid])
-        ))
+        request.auth.uid != userId && incoming().diff(existing()).affectedKeys().hasOnly(['followerIds']) && (
+          incoming().get('followerIds', []).size() == existing().get('followerIds', []).size() + 1 && incoming().get('followerIds', []).hasAll([request.auth.uid]) ||
+          existing().get('followerIds', []).size() == incoming().get('followerIds', []).size() + 1 && !incoming().get('followerIds', []).hasAny([request.auth.uid])
+        )
       );
     }
 
     function isValidUser(data) {
       return data.uid == request.auth.uid &&
-             data.email is string && data.email.size() <= 256 &&
-             data.displayName is string && data.displayName.size() <= 128 &&
+             (data.get('email', '') is string && data.get('email', '').size() <= 256) &&
+             (data.get('displayName', '') is string && data.get('displayName', '').size() <= 128) &&
              (data.get('bio', '') is string && data.get('bio', '').size() <= 600) &&
              (data.get('gender', '') in ['male', 'female', 'other', '']) &&
              (data.get('photoURL', '') is string && data.get('photoURL', '').size() <= 1500000) &&

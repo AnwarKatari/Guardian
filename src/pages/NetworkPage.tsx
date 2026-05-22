@@ -343,6 +343,29 @@ export default function NetworkPage({ setActiveTab, setSelectedId }: { setActive
 
   const toggleFollow = async (targetId: string, isFollowing: boolean) => {
     if (!user) return;
+    
+    // Optimistic update for UI
+    if (activeSegment === 'discover') {
+        setGlobalUsers(prev => prev.map(u => {
+            if (u.uid === targetId) {
+                const newFollowers = isFollowing 
+                    ? (u.followerIds?.filter(id => id !== user.uid) || [])
+                    : [...(u.followerIds || []), user.uid];
+                return { ...u, followerIds: newFollowers };
+            }
+            return u;
+        }));
+    }
+    setSearchResults(prev => prev.map(u => {
+        if (u.uid === targetId) {
+            const newFollowers = isFollowing 
+                ? (u.followerIds?.filter(id => id !== user.uid) || [])
+                : [...(u.followerIds || []), user.uid];
+            return { ...u, followerIds: newFollowers };
+        }
+        return u;
+    }));
+
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         followingIds: isFollowing ? arrayRemove(targetId) : arrayUnion(targetId)
@@ -696,7 +719,7 @@ export default function NetworkPage({ setActiveTab, setSelectedId }: { setActive
                        </h3>
                     </div>
                     <span className="text-[10px] font-black italic text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">
-                      {(activeSegment === 'followers' ? followers : following).length} Total
+                      {profile ? (activeSegment === 'followers' ? (profile?.followerIds?.length || 0) : (profile?.followingIds?.length || 0)) : '...'} Total
                     </span>
                  </div>
 
