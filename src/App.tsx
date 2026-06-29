@@ -15,6 +15,7 @@ import SafetyZonesPage from './pages/SafetyZonesPage';
 import TrustedContactsPage from './pages/TrustedContactsPage';
 import CheckInPage from './pages/CheckInPage';
 import ResourcesPage from './pages/ResourcesPage';
+import OfflineModule from './pages/OfflineModule';
 import FakeCallPage from './pages/FakeCallPage';
 import EmergencyHub from './pages/EmergencyHub';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -38,7 +39,8 @@ export default function App() {
       case 'settings': return <SettingsPage setActiveTab={setActiveTab} />;
       case 'trusted-contacts': return <TrustedContactsPage setActiveTab={setActiveTab} />;
       case 'dashboard': return <DashboardPage setActiveTab={setActiveTab} />;
-      case 'resources': return <ResourcesPage />;
+      case 'resources': return <ResourcesPage setActiveTab={setActiveTab} />;
+      case 'offline-module': return <OfflineModule setActiveTab={setActiveTab} />;
       case 'check-in': return <CheckInPage />;
       case 'fake-call': return <FakeCallPage setActiveTab={setActiveTab} />;
       case 'emergency-hub': return <EmergencyHub setActiveTab={setActiveTab} />;

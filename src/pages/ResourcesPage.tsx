@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Phone, 
   Shield, 
@@ -10,17 +10,59 @@ import {
   Zap,
   Info,
   ShieldAlert,
-  X
+  X,
+  CheckCircle2,
+  Loader2,
+  Database,
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmergencyNumbers } from '../constants/emergencyMatrix';
 import { cn } from '../lib/utils';
 
-export default function ResourcesPage() {
+export default function ResourcesPage({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const { profile } = useAuth();
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const emergency = getEmergencyNumbers(profile?.countryCode || 'GH');
+
+  // Offline vault download simulation
+  const [isDownloaded, setIsDownloaded] = useState(() => {
+    return localStorage.getItem('offline_vault_active') === 'true';
+  });
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadStep, setDownloadStep] = useState('');
+
+  const startOfflineDownload = () => {
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    setDownloadStep('Locating regional satellites...');
+    
+    const steps = [
+      { p: 15, s: 'Allocating partition on local physical storage...' },
+      { p: 35, s: 'Syncing emergency numbers for 195 nations...' },
+      { p: 60, s: 'Caching interactive cardiopulmonary guides...' },
+      { p: 85, s: 'Writing offline index to SQLite DB shell...' },
+      { p: 100, s: 'Verifying MD5 integrity signatures... Complete!' }
+    ];
+
+    let currentStepIdx = 0;
+    const interval = setInterval(() => {
+      if (currentStepIdx < steps.length) {
+        const item = steps[currentStepIdx];
+        setDownloadProgress(item.p);
+        setDownloadStep(item.s);
+        currentStepIdx++;
+      } else {
+        clearInterval(interval);
+        setIsDownloading(false);
+        setIsDownloaded(true);
+        localStorage.setItem('offline_vault_active', 'true');
+      }
+    }, 900);
+  };
 
   const resources = [
     {
@@ -150,13 +192,62 @@ export default function ResourcesPage() {
         ))}
       </div>
 
-      <div className="p-6 bg-blue-50 border border-blue-100 rounded-[32px] text-neutral-900 text-center space-y-4 relative overflow-hidden shadow-xl shadow-blue-50/50 z-10">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-[80px] rounded-full translate-x-8 -translate-y-8" />
-        <div className="relative">
-          <Shield className="mx-auto text-blue-600 mb-2" size={24} />
-          <h4 className="font-black text-sm uppercase italic tracking-tighter">OFFLINE_DATA_VAULT</h4>
-          <p className="text-[9px] text-neutral-400 px-4 font-bold uppercase tracking-widest mt-1 italic">Download local sector cache for disconnected operations.</p>
-          <button className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-blue-200 active:scale-95 transition-transform italic">Initiate_Download</button>
+      {/* Interactive Offline Vault Card */}
+      <div className="p-8 bg-neutral-900 border border-neutral-800 rounded-[40px] text-white text-center space-y-6 relative overflow-hidden shadow-2xl shadow-blue-500/5 z-10">
+        <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
+           <Database size={160} className="text-blue-500" />
+        </div>
+        <div className="relative space-y-4">
+          <div className="w-12 h-12 bg-blue-950 text-blue-400 border border-blue-900/40 rounded-2xl flex items-center justify-center mx-auto shadow-md">
+            <Database size={20} />
+          </div>
+          <div className="space-y-1">
+            <h4 className="font-black text-sm uppercase italic tracking-tighter text-white">OFFLINE_DATA_VAULT</h4>
+            <p className="text-[9px] text-neutral-400 px-4 font-bold uppercase tracking-widest leading-relaxed italic">
+              Download and compress global dispatch directories, step-by-step cardiopulmonary resuscitation guidelines, and fallback circle contacts for offline execution.
+            </p>
+          </div>
+
+          {isDownloading && (
+            <div className="space-y-3 pt-2 max-w-xs mx-auto">
+              <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${downloadProgress}%` }}
+                  className="h-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.4)]"
+                />
+              </div>
+              <p className="text-[8px] text-blue-400 font-mono font-black uppercase tracking-widest animate-pulse flex items-center justify-center gap-2">
+                <Loader2 size={10} className="animate-spin" />
+                {downloadStep}
+              </p>
+            </div>
+          )}
+
+          {!isDownloading && !isDownloaded && (
+            <button 
+              onClick={startOfflineDownload}
+              className="mt-4 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-blue-500/20 active:scale-95 transition-all italic flex items-center justify-center gap-2 mx-auto"
+            >
+              <Download size={12} /> INITIATE_SECURE_DOWNLOAD
+            </button>
+          )}
+
+          {isDownloaded && !isDownloading && (
+            <div className="space-y-4 pt-2">
+              <div className="p-3 bg-blue-950/40 border border-blue-900/30 rounded-2xl max-w-xs mx-auto flex items-center justify-center gap-2">
+                <CheckCircle2 size={14} className="text-blue-500 shrink-0" />
+                <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest italic">VAULT_SECTOR_SYNC_COMPLETE (v4.9.0)</span>
+              </div>
+              
+              <button 
+                onClick={() => setActiveTab('offline-module')}
+                className="w-full max-w-xs py-4 bg-white text-neutral-900 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-md hover:bg-neutral-100 active:scale-95 transition-all italic flex items-center justify-center gap-2 mx-auto"
+              >
+                ENTER SECURE OFFLINE SHELL <ArrowRight size={12} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

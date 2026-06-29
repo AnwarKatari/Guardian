@@ -52,6 +52,11 @@ service cloud.firestore {
           existing().get('followerIds', []).size() == incoming().get('followerIds', []).size() + 1 && !incoming().get('followerIds', []).hasAny([request.auth.uid])
         )
       );
+
+      // Location History Subcollection
+      match /locationHistory/{locationId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     function isValidUser(data) {

@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               autoCheckInInterval: 0,
               lastCheckInAt: '',
               bio: '',
-              gender: '',
+              gender: 'other',
               customSOSMessage: "EMERGENCY: I need help! My current location is attached.",
               fakeCallSettings: {
                 callerName: "Security Dispatch",

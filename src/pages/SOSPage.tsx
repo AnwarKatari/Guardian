@@ -80,7 +80,9 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     if (isAlertActive) return;
     setIsActivating(true);
     setProgress(0);
-    triggerHaptic(100);
+    // Heavy, persistent and serious vibration pattern designed to simulate an urgent hold
+    // alternate 600ms on, 100ms off for a total of over 3 seconds
+    triggerHaptic([600, 100, 600, 100, 600, 100, 600, 100, 600]);
     playFeedbackSound(440, 0.1);
 
     const startTime = Date.now();
@@ -89,9 +91,9 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
       const p = Math.min(elapsed / HOLD_DURATION, 1);
       setProgress(p);
       if (p < 1) {
-        if (Math.floor(elapsed / 500) > Math.floor((elapsed - 50) / 500)) {
-          triggerHaptic(30);
-          playFeedbackSound(440 + p * 200, 0.05);
+        // High-frequency sound feedback matching the vibration intensity
+        if (Math.floor(elapsed / 250) > Math.floor((elapsed - 50) / 250)) {
+          playFeedbackSound(440 + p * 250, 0.05);
         }
       }
     }, 16);
@@ -108,6 +110,8 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     clearTimeout(timerRef.current);
     setIsActivating(false);
     setProgress(0);
+    // Cancel the ongoing vibration immediately when user lets go
+    triggerHaptic(0);
   };
 
   const handleTrigger = async () => {
@@ -123,7 +127,8 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     setIsAlertActive(true);
     setIsActivating(false);
     setProgress(0);
-    triggerHaptic([200, 100, 200]);
+    // Heavy rapid final confirmation pulse pattern to signify successful dispatch
+    triggerHaptic([300, 80, 300, 80, 500, 80, 800]);
     playFeedbackSound(880, 0.5);
     
     await triggerSOS();
@@ -177,25 +182,41 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
   }, [profile?.emergencyContacts]);
 
   return (
-    <div className={cn(
-      "h-full w-full flex flex-col transition-colors duration-700 relative text-neutral-900 overflow-hidden",
-      isAlertActive ? "bg-neutral-50" : "bg-white"
-    )}>
+    <div className="min-h-screen bg-white p-6 space-y-8 pb-32 max-w-lg mx-auto relative overflow-hidden font-sans text-neutral-900">
       {/* Dynamic Background Accents (Home Page Style) */}
       <div className="absolute top-0 right-0 w-[80%] h-[40%] bg-blue-50/50 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[60%] h-[40%] bg-indigo-50/40 blur-[100px] pointer-events-none" />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.02)_1px,transparent_1px)] bg-[size:40px_40px] opacity-10" />
       
-      {/* Precision UI Badge (Firm reinforcement) */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md border border-neutral-100 rounded-full shadow-lg">
-        <div className={cn(
-          "w-2 h-2 rounded-full animate-pulse",
-          isAlertActive ? "bg-red-500 shadow-[0_0_10px_#ef4444]" : "bg-emerald-500 shadow-[0_0_10px_#10b981]"
-        )} />
-        <span className="text-[10px] font-black tracking-[0.2em] uppercase text-neutral-500 italic">
-          {isAlertActive ? "PROTOCOL: ACTIVE" : "SIGNAL: ENCRYPTED"}
-        </span>
-      </div>
+      {/* Safety Header */}
+      <section className="flex justify-between items-center relative z-10 pt-4">
+        <div className="flex items-center gap-4">
+          <div className="p-2.5 bg-white rounded-2xl border border-neutral-100 shadow-xl group cursor-crosshair hover:rotate-[360deg] transition-all duration-700">
+            <GuardianLogo size={22} pulsing={true} />
+          </div>
+          <div className="space-y-0.5">
+            <h2 className="text-xl font-display font-black tracking-tighter text-neutral-900 italic leading-none uppercase">
+              Ai-POWERED <span className="text-blue-600 drop-shadow-sm">HUMAN SAFETY ALERT</span>
+            </h2>
+            <div className="flex items-center gap-2">
+               <div className={cn(
+                 "w-1.5 h-1.5 rounded-full animate-pulse",
+                 isAlertActive ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
+               )} />
+               <p onClick={() => setActiveTab && setActiveTab('network')} className="text-neutral-400 text-[9px] font-mono font-black uppercase tracking-[0.3em] italic cursor-pointer hover:text-blue-600 transition-colors">
+                 {isAlertActive ? "EMERGENCY PROTOCOL BROADCASTING" : `SOS CONTACTS: ${profile?.emergencyContacts?.length || 0} ACTIVE`}
+               </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end">
+           <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 border border-neutral-700 text-white rounded-full shadow-lg active:scale-95 transition-all group overflow-hidden relative">
+              <div className="absolute inset-0 bg-blue-600/20 translate-y-full group-hover:translate-y-0 transition-transform" />
+              <Zap size={10} className="text-blue-400 fill-blue-400 relative z-10" />
+              <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 relative z-10">v4.9.0</span>
+           </div>
+        </div>
+      </section>
 
       {/* Success Toast */}
       <AnimatePresence>
@@ -213,27 +234,47 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
       </AnimatePresence>
 
       {/* Main Content Area - Centered and Firm */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6 py-12">
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6 py-4">
         
         {/* The Central Hub */}
         <div className="relative group">
-          {/* External Halo pulses */}
+          {/* External Halo pulses (Apple Blinking Red & Heartbeat Effect) */}
           <AnimatePresence>
-            {(isActivating || isAlertActive) && (
+            {!isAlertActive ? (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0.3, scale: 0.95 }}
+                  animate={{ opacity: [0.5, 0, 0.5], scale: [1, 1.35, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute inset-[-12px] rounded-full border-2 border-red-500/30 pointer-events-none"
+                />
+                <motion.div 
+                  initial={{ opacity: 0.15, scale: 0.9 }}
+                  animate={{ opacity: [0.3, 0, 0.3], scale: [1, 1.7, 1] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute inset-[-28px] rounded-full border border-red-500/15 pointer-events-none"
+                />
+                <div className="absolute inset-[-6px] rounded-full bg-red-500/5 animate-pulse pointer-events-none" />
+              </>
+            ) : (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
+                animate={{ opacity: [0.8, 0.4, 0.8], scale: 1 }}
+                transition={{ duration: 1.5, repeat: Infinity }}
                 exit={{ opacity: 0, scale: 1.2 }}
-                className="absolute inset-x-[-40%] inset-y-[-40%] rounded-full bg-red-500/5 blur-3xl"
+                className="absolute inset-x-[-40%] inset-y-[-40%] rounded-full bg-red-600/10 blur-3xl"
               />
             )}
           </AnimatePresence>
 
           {/* Neumorphic Base */}
-          <div className="relative flex items-center justify-center w-[85vw] h-[85vw] max-w-[320px] max-h-[320px] rounded-full bg-white shadow-[20px_20px_60px_#d1d1d1,-20px_-20px_60px_#ffffff] border-[1px] border-neutral-100 p-2">
+          <div className="relative flex items-center justify-center w-[75vw] h-[75vw] max-w-[280px] max-h-[280px] rounded-full bg-white shadow-[12px_12px_36px_rgba(0,0,0,0.06),-12px_-12px_36px_rgba(255,255,255,0.8)] border-[1px] border-neutral-100 p-2">
             
             {/* Inner Ring (Static Detail) */}
-            <div className="absolute inset-6 rounded-full border border-neutral-50 shadow-inner" />
+            <div className="absolute inset-4 rounded-full border border-neutral-50 shadow-inner" />
+            
+            {/* Clock Ticks Detail */}
+            <div className="absolute inset-3 rounded-full border border-dashed border-neutral-100 opacity-60 pointer-events-none" />
 
             {/* Rotating UI elements */}
             <motion.div 
@@ -245,9 +286,9 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                 <div key={deg} className="absolute top-4 left-1/2 -translate-x-1/2 w-[2px] h-4 bg-neutral-900 rounded-full" style={{ transform: `rotate(${deg}deg)` }} />
               ))}
             </motion.div>
-
+ 
             {/* SOS Button Container */}
-            <div className="relative flex items-center justify-center w-[75vw] h-[75vw] max-w-[280px] max-h-[280px]">
+            <div className="relative flex items-center justify-center w-[65vw] h-[65vw] max-w-[240px] max-h-[240px]">
               
               {/* SVG Progress Ring */}
               <AnimatePresence>
@@ -279,7 +320,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                   </motion.svg>
                 )}
               </AnimatePresence>
-
+ 
               {/* The 3D SOS Button */}
               <motion.button
                 onMouseDown={startHold}
@@ -296,14 +337,14 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                 className={cn(
                   "absolute inset-0 z-30 rounded-full flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-500 border-red-400/50",
                   isAlertActive ? "bg-gradient-to-br from-zinc-800 to-zinc-950 shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),inset_0_-8px_16px_rgba(0,0,0,0.6),0_20px_60px_rgba(0,0,0,0.4)] border-zinc-700/50" :
-                  "bg-gradient-to-br from-red-400 via-red-500 to-red-600 shadow-[inset_0_8px_16px_rgba(255,255,255,0.4),inset_0_-8px_16px_rgba(0,0,0,0.2),0_30px_70px_rgba(220,38,38,0.5)]"
+                  "bg-gradient-to-br from-red-500 via-red-600 to-red-700 shadow-[inset_0_6px_12px_rgba(255,255,255,0.35),inset_0_-6px_12px_rgba(0,0,0,0.15),0_15px_35px_rgba(239,68,68,0.45)]"
                 )}
               >
-                {/* Visual Depth */}
+                {/* Visual Depth / Gloss */}
                 {!isAlertActive && (
-                  <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/10" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,_rgba(255,255,255,0.25)_0%,_transparent_60%)]" />
                 )}
-
+ 
                 <AnimatePresence mode="wait">
                   {isAlertActive ? (
                     <motion.div 
@@ -312,11 +353,11 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                       animate={{ scale: 1, opacity: 1 }}
                       className="flex flex-col items-center text-white"
                     >
-                      <div className="p-5 bg-emerald-500/20 rounded-[32px] mb-3 border border-emerald-500/30 shadow-inner">
-                        <Lock size={48} className="text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+                      <div className="p-4 bg-emerald-500/25 rounded-[24px] mb-2 border border-emerald-500/30 shadow-inner">
+                        <Lock size={32} className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
                       </div>
-                      <span className="font-black text-3xl tracking-[0.2em] uppercase leading-none drop-shadow-md text-emerald-500 italic font-display">Locked</span>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60 mt-3 italic">Dispatch Ongoing</p>
+                      <span className="font-black text-2xl tracking-[0.2em] uppercase leading-none drop-shadow-md text-emerald-400 italic font-display">Locked</span>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400/50 mt-2 italic">Dispatch Ongoing</p>
                     </motion.div>
                   ) : isActivating ? (
                     <motion.div 
@@ -325,15 +366,15 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                       animate={{ scale: 1, opacity: 1 }}
                       className="flex flex-col items-center text-white"
                     >
-                      <div className="relative mb-4">
-                        <Fingerprint size={80} className="animate-pulse text-red-50 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" />
+                      <div className="relative mb-3">
+                        <Fingerprint size={64} className="animate-pulse text-red-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]" />
                         <motion.div 
                           animate={{ top: ["0%", "100%", "0%"] }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
                           className="absolute left-0 w-full h-[2px] bg-white brightness-200 shadow-[0_0_10px_white]"
                         />
                       </div>
-                      <span className="font-black text-2xl tracking-widest uppercase italic font-display text-white">Transmitting</span>
+                      <span className="font-black text-lg tracking-widest uppercase italic font-display text-white">Transmitting</span>
                     </motion.div>
                   ) : (
                     <motion.div 
@@ -342,13 +383,13 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                       animate={{ scale: 1, opacity: 1 }}
                       className="flex flex-col items-center text-white"
                     >
-                      <span className="font-black text-[96px] tracking-tighter uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)] leading-none mb-1 italic font-display text-white">SOS</span>
-                      <div className="bg-black/20 px-6 py-2 rounded-full backdrop-blur-md shadow-inner border border-white/10">
-                        <span className="text-[10px] font-black tracking-[0.3em] uppercase text-red-50 italic">Force Hold</span>
+                      <span className="font-black text-[72px] tracking-tighter uppercase drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)] leading-none mb-1 italic font-display text-white">SOS</span>
+                      <div className="bg-black/25 px-5 py-1.5 rounded-full backdrop-blur-md shadow-inner border border-white/10">
+                        <span className="text-[9px] font-black tracking-[0.25em] uppercase text-red-50 italic">Force Hold</span>
                       </div>
-                      <div className="mt-4 flex items-center gap-2 opacity-40">
-                         <Shield size={12} />
-                         <span className="text-[8px] font-black uppercase tracking-widest italic">Biometrically Secure</span>
+                      <div className="mt-3 flex items-center gap-1.5 opacity-50">
+                         <Shield size={10} />
+                         <span className="text-[8px] font-black uppercase tracking-widest italic">Encrypted Connection</span>
                       </div>
                     </motion.div>
                   )}
@@ -358,27 +399,52 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
           </div>
         </div>
 
+        {/* Instant SOS Dispatch Button - Apple style secondary wow button */}
+        {!isAlertActive && (
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleTrigger}
+            className="w-full max-w-sm mt-8 p-5 bg-gradient-to-r from-neutral-900 via-red-950 to-neutral-900 border border-neutral-800 rounded-[30px] shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),0_15px_30px_rgba(220,38,38,0.15)] flex items-center justify-between group relative overflow-hidden transition-all duration-300 pointer-events-auto"
+          >
+            <div className="absolute inset-0 bg-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="p-3 bg-red-600/15 text-red-500 rounded-2xl group-hover:bg-red-600 group-hover:text-white transition-all shadow-md">
+                <ShieldAlert size={20} className="animate-pulse" />
+              </div>
+              <div className="text-left">
+                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-red-400 font-mono italic">Alternative Trigger</span>
+                <p className="font-black text-sm text-white uppercase tracking-tight mt-0.5">1-TAP INSTANT DISPATCH</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 relative z-10 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+              <span className="text-[8px] font-black uppercase tracking-widest text-red-300">Instant</span>
+            </div>
+          </motion.button>
+        )}
+ 
         {/* Emergency Circle Status (Firmly anchored) */}
         {!isAlertActive && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-12 flex flex-col items-center gap-4"
+            className="mt-8 flex flex-col items-center gap-3"
           >
-            <div className="flex -space-x-4">
+            <div className="flex -space-x-3">
               {profile?.emergencyContacts && profile.emergencyContacts.length > 0 ? (
                 <>
                   {profile.emergencyContacts.slice(0, 5).map(c => {
                     const fetchedMember = activeCircle.find(m => m.uid === c.id);
                     return (
-                      <div key={c.id} className="w-12 h-12 rounded-full border-4 border-white overflow-hidden shadow-xl transition-all hover:scale-110 hover:z-10 group relative">
+                      <div key={c.id} className="w-10 h-10 rounded-full border-4 border-white overflow-hidden shadow-xl transition-all hover:scale-110 hover:z-10 group relative">
                         <img 
                           src={fetchedMember?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name || c.id}`} 
                           className="w-full h-full object-cover" 
                           alt="" 
                         />
                         <div className={cn(
-                          "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white",
+                          "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white",
                           fetchedMember?.isOnline ? "bg-emerald-500 shadow-[0_0_5px_#10b981]" : "bg-neutral-300"
                         )} />
                       </div>
@@ -387,8 +453,8 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                 </>
               ) : (
                 [1,2,3].map(i => (
-                  <div key={i} className="w-12 h-12 rounded-full border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm">
-                    <UserCheck size={16} className="text-neutral-300" />
+                  <div key={i} className="w-10 h-10 rounded-full border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm">
+                    <UserCheck size={14} className="text-neutral-300" />
                   </div>
                 ))
               )}
@@ -399,7 +465,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
           </motion.div>
         )}
       </div>
-
+ 
       {/* Action Panels - Aligned with App spacing */}
       <AnimatePresence mode="wait">
         {!isAlertActive ? (

@@ -27,7 +27,8 @@ import {
   Zap,
   AlertTriangle,
   Sparkles,
-  Edit2
+  Edit2,
+  Watch
 } from 'lucide-react';
 import axios from 'axios';
 import { auth, storage } from '../firebase';
@@ -44,6 +45,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { EMERGENCY_MATRIX } from '../constants/emergencyMatrix';
 import { COUNTRIES, getCountryByCode } from '../constants/countries';
+import WearableCompanion from '../components/WearableCompanion';
 
 export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const { user, profile, isLocalMode, updateProfile } = useAuth();
@@ -68,6 +70,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("Initializing...");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showWearableModal, setShowWearableModal] = useState(false);
 
   const handleUpdateName = async () => {
     if (!displayName.trim()) return;
@@ -578,6 +581,28 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
               >
                  <div className={cn("w-1 h-1 rounded-full", profile?.securityOverlayActive ? "bg-neutral-900" : "bg-neutral-300")} />
               </motion.div>
+            </button>
+          </div>
+
+          {/* Smartwatch Wearable Integration */}
+          <div 
+            onClick={() => setShowWearableModal(true)}
+            className="p-6 flex items-center justify-between hover:bg-neutral-50 transition-colors group cursor-pointer"
+          >
+            <div className="flex items-center gap-5">
+              <div className="p-4 rounded-[20px] bg-neutral-50 text-neutral-400 border border-neutral-100 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-100 transition-all duration-300 shadow-sm">
+                <Watch size={20} className="group-hover:rotate-12 transition-transform duration-500" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-neutral-900 uppercase tracking-widest italic leading-none">Smartwatch Companion</p>
+                <p className="text-[9px] font-bold text-neutral-400 uppercase leading-none tracking-tight italic">One-touch SOS & discreet gesture mapping</p>
+              </div>
+            </div>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowWearableModal(true); }}
+              className="px-4 py-2 bg-neutral-950 text-white rounded-xl text-[8px] font-black uppercase tracking-widest italic hover:bg-blue-600 active:scale-95 transition-all shadow-md shrink-0"
+            >
+              Configure
             </button>
           </div>
 
@@ -1135,6 +1160,12 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showWearableModal && (
+          <WearableCompanion onClose={() => setShowWearableModal(false)} />
         )}
       </AnimatePresence>
     </div>

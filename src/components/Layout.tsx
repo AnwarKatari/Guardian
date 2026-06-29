@@ -127,7 +127,7 @@ export default function Layout({
     return <Onboarding />;
   }
 
-  const isDarkPage = activeTab === 'sos';
+  const isDarkPage = false;
 
   return (
     <div className={cn(

@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { doc, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -15,6 +15,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<GeolocationCoordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { user, profile } = useAuth();
+  const lastSavedRef = useRef<{ lat: number, lng: number, time: number } | null>(null);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) {
@@ -27,10 +28,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         setLocation(position.coords);
         setError(null);
         
-        // Update user location in Firestore if sharing is enabled
-        if (user && profile?.isSharingLocation) {
-          const userRef = doc(db, 'users', user.uid);
-          
+        // Update user location in Firestore
+        if (user) {
           let lat = position.coords.latitude;
           let lng = position.coords.longitude;
 
@@ -42,17 +41,38 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
             lng += (Math.random() - 0.5) * 0.01;
           }
 
-          updateDoc(userRef, {
-            'lastLocation': {
+          if (profile?.isSharingLocation) {
+            const userRef = doc(db, 'users', user.uid);
+            updateDoc(userRef, {
+              'lastLocation': {
+                lat,
+                lng,
+                timestamp: new Date().toISOString()
+              },
+              'isOnline': profile?.isPrivacyMode ? false : true,
+              'lastSeen': new Date().toISOString()
+            }).catch((error) => {
+              handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+            });
+          }
+
+          // Also save in locationHistory subcollection in Firestore (throttled)
+          const now = Date.now();
+          const shouldSave = !lastSavedRef.current || 
+            (now - lastSavedRef.current.time > 15000 && // at least 15 seconds have passed
+             (Math.abs(lat - lastSavedRef.current.lat) > 0.0001 || Math.abs(lng - lastSavedRef.current.lng) > 0.0001)); // or moved slightly
+
+          if (shouldSave) {
+            lastSavedRef.current = { lat, lng, time: now };
+            const historyRef = collection(db, 'users', user.uid, 'locationHistory');
+            addDoc(historyRef, {
               lat,
               lng,
               timestamp: new Date().toISOString()
-            },
-            'isOnline': profile?.isPrivacyMode ? false : true,
-            'lastSeen': new Date().toISOString()
-          }).catch((error) => {
-            handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
-          });
+            }).catch((err) => {
+              console.error("Failed to write to locationHistory:", err);
+            });
+          }
         }
       },
       (err) => {
