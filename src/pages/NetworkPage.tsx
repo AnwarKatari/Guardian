@@ -281,9 +281,15 @@ export default function NetworkPage({ setActiveTab, setSelectedId }: { setActive
 
     setIsSearching(true);
     try {
+      const trimmedQuery = searchQuery.trim();
+      const emailVariants = Array.from(new Set([
+        trimmedQuery,
+        trimmedQuery.toLowerCase(),
+        trimmedQuery.toUpperCase()
+      ]));
       const q = query(
         collection(db, 'users'), 
-        where('email', '==', searchQuery.trim().toLowerCase()),
+        where('email', 'in', emailVariants),
         limit(1)
       );
       const snapshot = await getDocs(q);

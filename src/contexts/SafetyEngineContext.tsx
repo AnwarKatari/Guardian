@@ -11,6 +11,7 @@ interface SafetyEngineType {
   systemLogs: string[];
   addLog: (msg: string) => void;
   triggerSOS: () => Promise<boolean>;
+  sendAutomatedEmailSOSAlerts: (contacts: any[], userName: string, message: string, location: any) => Promise<boolean>;
   micStatus: 'granted' | 'denied' | 'prompt' | 'unsupported';
   setMicStatus: (status: 'granted' | 'denied' | 'prompt' | 'unsupported') => void;
   lastSOSConfirmed: boolean;
@@ -64,6 +65,59 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
       setSystemLogs(prev => [`[${timestamp}] ${msg}`, ...prev].slice(0, 50));
     });
   }, []);
+
+  const sendAutomatedEmailSOSAlerts = useCallback(async (
+    contacts: any[],
+    userName: string,
+    message: string,
+    location: any
+  ) => {
+    // 1. Parse the trusted contacts list to extract valid emails
+    const emailContacts = contacts.filter(c => c.email && c.email.trim() !== '');
+    
+    if (emailContacts.length === 0) {
+      addLog("EMAIL_BACKUP_WARN: No trusted contacts with registered email addresses found.");
+      return false;
+    }
+
+    addLog(`EMAIL_BACKUP: Parsing ${emailContacts.length} trusted contact email endpoints...`);
+    
+    try {
+      addLog("EMAIL_BACKUP: Transmitting SOS alerts via secure SMTP configuration...");
+      const emailResponse = await fetch('/api/email/send-sos-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contacts: emailContacts,
+          senderName: userName,
+          message: message,
+          location: location
+        })
+      });
+      
+      const emailData = await emailResponse.json();
+      if (emailData.status === 'success') {
+        const simulatedCount = emailData.results?.filter((r: any) => r.status === 'simulated').length || 0;
+        const sentCount = emailData.results?.filter((r: any) => r.status === 'sent').length || 0;
+        
+        if (sentCount > 0) {
+          addLog(`EMAIL_BACKUP_SUCCESS: Automated alerts sent via SMTP to ${sentCount} verified contacts.`);
+          return true;
+        }
+        if (simulatedCount > 0) {
+          addLog(`EMAIL_BACKUP_SIM: Automated simulation completed for ${simulatedCount} contacts (no active SMTP key).`);
+          return true;
+        }
+      } else {
+        addLog(`EMAIL_BACKUP_ERR: SMTP dispatch returned error status - ${emailData.message || "Unknown issue"}`);
+      }
+    } catch (emailErr: any) {
+      console.error("SOS automated fallback email alert dispatch error:", emailErr);
+      addLog(`EMAIL_BACKUP_FAIL: Critical failure in email dispatch relay.`);
+    }
+    
+    return false;
+  }, [addLog]);
 
   const triggerSOS = useCallback(async () => {
     if (isTriggering.current) return false;
@@ -168,6 +222,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     try {
       if (allContactsToNotify.length > 0) {
         const phoneNumbers = allContactsToNotify.map(c => c.phone);
+        let smsGatewaySucceeded = false;
 
         // EXCLUSIVE Arkesel Cloud Relay
         try {
@@ -189,6 +244,11 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
             addLog(`SERVER_RELAY: Signal broadcast via ${data.relay}`);
             isSuccessfullySent = true;
             usedRelay = data.relay;
+            
+            // Check if it's a real gateway transmission success
+            if (data.relay !== "SIMULATION_FALLBACK" && data.relay !== "SIMULATION_MODE") {
+              smsGatewaySucceeded = true;
+            }
           } else {
             const detailedError = data.details ? JSON.stringify(data.details) : (data.message || data.error);
             failureReason = `RELAY_REJECTION: ${detailedError}`;
@@ -198,6 +258,22 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
            const errorText = serverErr instanceof Error ? serverErr.message : String(serverErr);
            failureReason = `NETWORK_ERR: ${errorText}`;
            addLog(`RELAY_FAIL: Socket connection timeout. Arkesel online relay is mandatory.`);
+        }
+
+        // Automatic SMTP backup triggers if primary SMS gateway fails (or operates in simulation/fallback modes)
+        if (!smsGatewaySucceeded) {
+          addLog("BACKUP_PROTOCOL: Primary SMS gateway inactive or failed. Triggering secure automated email fallback...");
+          const emailBackupSent = await sendAutomatedEmailSOSAlerts(allContactsToNotify, userName, sosBody, locationObj);
+          if (emailBackupSent) {
+            isSuccessfullySent = true;
+            if (usedRelay === "UNKNOWN" || usedRelay === "SIMULATION_FALLBACK") {
+              usedRelay = "EMAIL_BACKUP_RELAY";
+            }
+          }
+        } else {
+          // Parallel notification fallback as extra safeguard
+          addLog("EMAIL_RELAY: Initiating resilient email backup broadcast...");
+          await sendAutomatedEmailSOSAlerts(allContactsToNotify, userName, sosBody, locationObj);
         }
       }
 
@@ -340,6 +416,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     systemLogs, 
     addLog, 
     triggerSOS,
+    sendAutomatedEmailSOSAlerts,
     micStatus,
     setMicStatus,
     lastSOSConfirmed,
@@ -347,7 +424,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     checkInTimer,
     startCheckInTimer,
     cancelCheckInTimer
-  }), [isArmed, setIsArmed, systemLogs, addLog, triggerSOS, micStatus, lastSOSConfirmed, checkInTimer, startCheckInTimer, cancelCheckInTimer]);
+  }), [isArmed, setIsArmed, systemLogs, addLog, triggerSOS, sendAutomatedEmailSOSAlerts, micStatus, lastSOSConfirmed, checkInTimer, startCheckInTimer, cancelCheckInTimer]);
 
   return (
     <SafetyEngineContext.Provider value={contextValue}>

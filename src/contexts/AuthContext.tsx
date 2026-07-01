@@ -12,6 +12,8 @@ interface AuthContextType {
   isLocalMode: boolean;
   setLocalMode: (enabled: boolean) => void;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  sendWelcomeNotification: (email: string, displayName: string) => Promise<void>;
+  sendSignInNotification: (email: string, displayName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +25,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLocalMode, setIsLocalMode] = useState(() => {
     return localStorage.getItem('guardian_local_mode') === 'true';
   });
+
+  const sendWelcomeNotification = async (email: string, displayName: string) => {
+    try {
+      const response = await fetch("/api/email/notify-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          type: "signup",
+          displayName: displayName
+        })
+      });
+      const data = await response.json();
+      if (data.status !== "success") {
+        console.warn("Welcome email notification warning:", data.message);
+      }
+    } catch (err) {
+      console.error("Failed to send welcome email notification:", err);
+    }
+  };
+
+  const sendSignInNotification = async (email: string, displayName: string) => {
+    try {
+      const response = await fetch("/api/email/notify-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          type: "signin",
+          displayName: displayName
+        })
+      });
+      const data = await response.json();
+      if (data.status !== "success") {
+        console.warn("Sign-in email notification warning:", data.message);
+      }
+    } catch (err) {
+      console.error("Failed to send sign-in email notification:", err);
+    }
+  };
 
   const setLocalMode = (enabled: boolean) => {
     setIsLocalMode(enabled);
@@ -126,7 +168,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 callerName: "Security Dispatch",
                 triggerDelay: 5,
                 voiceType: 'neutral'
-              }
+              },
+              points: 0,
+              badges: [],
+              completedChallenges: []
             };
             await setDoc(userRef, initialProfile);
           }
@@ -134,7 +179,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Start listening for profile changes
           unsubSnapshot = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
-              setProfile(snapshot.data() as UserProfile);
+              const data = snapshot.data();
+              if (data.points === undefined || data.badges === undefined || data.completedChallenges === undefined) {
+                setDoc(userRef, {
+                  points: data.points ?? 0,
+                  badges: data.badges ?? [],
+                  completedChallenges: data.completedChallenges ?? []
+                }, { merge: true }).catch(err => console.error("Self-healing profile setup failed:", err));
+              }
+              setProfile(data as UserProfile);
             }
             setLoading(false);
           }, (error) => {
@@ -178,7 +231,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isLocalMode, setLocalMode, updateProfile }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      profile, 
+      loading, 
+      isLocalMode, 
+      setLocalMode, 
+      updateProfile,
+      sendWelcomeNotification,
+      sendSignInNotification
+    }}>
       {children}
     </AuthContext.Provider>
   );

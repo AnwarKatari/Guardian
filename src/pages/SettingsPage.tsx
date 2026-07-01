@@ -45,11 +45,95 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { EMERGENCY_MATRIX } from '../constants/emergencyMatrix';
 import { COUNTRIES, getCountryByCode } from '../constants/countries';
-import WearableCompanion from '../components/WearableCompanion';
+import { useNotifications } from '../contexts/NotificationContext';
+import { 
+  SAFETY_TIPS, 
+  getSchedulerConfig, 
+  saveSchedulerConfig, 
+  getReceivedTipsHistory, 
+  clearTipsHistory, 
+  requestNotificationPermission, 
+  addTipToHistory 
+} from '../services/SafetyTipsService';
 
 export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const { user, profile, isLocalMode, updateProfile } = useAuth();
   const { micStatus, lastSOSConfirmed, setLastSOSConfirmed } = useSafety();
+  
+  // Daily Safety Tips States
+  const { addLocalNotification } = useNotifications();
+  const [tipsConfig, setTipsConfig] = useState(() => getSchedulerConfig());
+  const [tipsHistory, setTipsHistory] = useState(() => getReceivedTipsHistory());
+  const [permissionStatus, setPermissionStatus] = useState<string>(() => {
+    if (!("Notification" in window)) return "unsupported";
+    return Notification.permission;
+  });
+
+  const handleToggleTips = (enabled: boolean) => {
+    const updated = { ...tipsConfig, enabled };
+    setTipsConfig(updated);
+    saveSchedulerConfig(updated);
+    setSuccessMessage(enabled ? "DAILY TIPS ENABLED" : "DAILY TIPS DISABLED");
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleTimeChange = (time: string) => {
+    const updated = { ...tipsConfig, time };
+    setTipsConfig(updated);
+    saveSchedulerConfig(updated);
+    setSuccessMessage(`TIME UPDATED TO ${time}`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleRequestPermission = async () => {
+    const granted = await requestNotificationPermission();
+    setPermissionStatus(granted ? "granted" : "denied");
+    setSuccessMessage(granted ? "PERMISSION GRANTED" : "PERMISSION DENIED");
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleTriggerTestTip = () => {
+    const randomTip = SAFETY_TIPS[Math.floor(Math.random() * SAFETY_TIPS.length)];
+    
+    addLocalNotification(
+      `DAILY SAFETY TIP // ${randomTip.category}`,
+      `${randomTip.title}: ${randomTip.content}`,
+      'info'
+    );
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification(`Safety Tip: ${randomTip.title}`, {
+          body: randomTip.content,
+          icon: "/favicon.ico"
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    addTipToHistory(randomTip.id);
+    
+    const updatedConfig = { ...tipsConfig };
+    if (!updatedConfig.receivedTipIds.includes(randomTip.id)) {
+      updatedConfig.receivedTipIds.push(randomTip.id);
+      saveSchedulerConfig(updatedConfig);
+      setTipsConfig(updatedConfig);
+    }
+
+    setTipsHistory(getReceivedTipsHistory());
+    setSuccessMessage("TEST TIP DELIVERED");
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleClearHistory = () => {
+    clearTipsHistory();
+    setTipsConfig(getSchedulerConfig());
+    setTipsHistory([]);
+    setSuccessMessage("HISTORY PURGED");
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
   const [isUpdating, setIsUpdating] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
@@ -60,7 +144,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [isGeneratingBio, setIsGeneratingBio] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const [newContact, setNewContact] = useState({ name: '', phone: '' });
+  const [newContact, setNewContact] = useState({ name: '', phone: '', email: '' });
   const [contactCountryCode, setContactCountryCode] = useState(
     COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233'
   );
@@ -70,7 +154,6 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("Initializing...");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showWearableModal, setShowWearableModal] = useState(false);
 
   const handleUpdateName = async () => {
     if (!displayName.trim()) return;
@@ -180,7 +263,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
     if (editingContactId) {
       // Update existing
       const updatedContacts = profile.emergencyContacts.map(c => 
-        c.id === editingContactId ? { ...c, name: finalName, phone: finalPhone } : c
+        c.id === editingContactId ? { ...c, name: finalName, phone: finalPhone, email: newContact.email || '' } : c
       );
       await updateProfile({ emergencyContacts: updatedContacts });
     } else {
@@ -196,6 +279,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
         id: contactId,
         name: finalName,
         phone: finalPhone,
+        email: newContact.email || '',
         isVerified: true
       };
 
@@ -205,21 +289,22 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
       });
     }
     
-    setNewContact({ name: '', phone: '' });
+    setNewContact({ name: '', phone: '', email: '' });
     setContactCountryCode(COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233');
     setEditingContactId(null);
     setShowContactModal(false);
   };
 
   const openNewContactModal = () => {
-    setNewContact({ name: '', phone: '' });
+    setNewContact({ name: '', phone: '', email: '' });
     setContactCountryCode(COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233');
     setEditingContactId(null);
     setShowContactModal(true);
   };
 
   const handleEditContact = (contact: any) => {
-    setNewContact({ name: contact.name, phone: contact.phone });
+    const contactEmail = contact.email || '';
+    setNewContact({ name: contact.name, phone: contact.phone, email: contactEmail });
     
     // Attempt to extract country code
     const match = COUNTRIES.find(c => contact.phone.startsWith(c.dialCode));
@@ -227,10 +312,15 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
       setContactCountryCode(match.dialCode);
       setNewContact({ 
         name: contact.name, 
-        phone: contact.phone.replace(match.dialCode, '').replace(/\D/g, '') 
+        phone: contact.phone.replace(match.dialCode, '').replace(/\D/g, ''),
+        email: contactEmail
       });
     } else {
-      setNewContact({ name: contact.name, phone: contact.phone.replace(/\D/g, '') });
+      setNewContact({ 
+        name: contact.name, 
+        phone: contact.phone.replace(/\D/g, ''),
+        email: contactEmail
+      });
     }
 
     setEditingContactId(contact.id);
@@ -584,27 +674,176 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
             </button>
           </div>
 
-          {/* Smartwatch Wearable Integration */}
-          <div 
-            onClick={() => setShowWearableModal(true)}
-            className="p-6 flex items-center justify-between hover:bg-neutral-50 transition-colors group cursor-pointer"
-          >
+          {/* Security Question Section */}
+          <div className="p-6 space-y-4 hover:bg-neutral-50 transition-colors group">
             <div className="flex items-center gap-5">
               <div className="p-4 rounded-[20px] bg-neutral-50 text-neutral-400 border border-neutral-100 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-100 transition-all duration-300 shadow-sm">
-                <Watch size={20} className="group-hover:rotate-12 transition-transform duration-500" />
+                <Lock size={20} />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-black text-neutral-900 uppercase tracking-widest italic leading-none">Smartwatch Companion</p>
-                <p className="text-[9px] font-bold text-neutral-400 uppercase leading-none tracking-tight italic">One-touch SOS & discreet gesture mapping</p>
+                <p className="text-xs font-black text-neutral-900 uppercase tracking-widest italic leading-none">Security Recovery Question</p>
+                <p className="text-[9px] font-bold text-neutral-400 uppercase leading-none tracking-tight italic">Set a question to recover your password if forgotten</p>
               </div>
             </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); setShowWearableModal(true); }}
-              className="px-4 py-2 bg-neutral-950 text-white rounded-xl text-[8px] font-black uppercase tracking-widest italic hover:bg-blue-600 active:scale-95 transition-all shadow-md shrink-0"
-            >
-              Configure
-            </button>
+
+            <div className="space-y-4 pt-2 max-w-md">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.2em] ml-1">Select Security Question</label>
+                <select
+                  value={profile?.securityQuestion || "What was the name of your first pet?"}
+                  onChange={(e) => updateProfile({ securityQuestion: e.target.value })}
+                  className="w-full bg-white border border-neutral-100 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-800 outline-none focus:border-blue-600 transition-all italic"
+                >
+                  <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                  <option value="What was the name of your first school?">What was the name of your first school?</option>
+                  <option value="In what city were you born?">In what city were you born?</option>
+                  <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                  <option value="What was the make of your first car?">What was the make of your first car?</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.2em] ml-1">Security Answer</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={profile?.securityAnswer || ""}
+                    onChange={(e) => updateProfile({ securityAnswer: e.target.value.toLowerCase().trim() })}
+                    placeholder="Provide answer"
+                    className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-800 outline-none focus:border-blue-600 transition-all uppercase italic"
+                  />
+                  <button
+                    onClick={() => {
+                      setSuccessMessage("SECURITY QUESTION SAVED");
+                      setTimeout(() => setSuccessMessage(null), 3000);
+                    }}
+                    className="p-2.5 bg-neutral-900 text-white rounded-xl hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-neutral-200 shrink-0 animate-pulse"
+                  >
+                    <Save size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+
+
+
+          {/* Daily Safety Tips Scheduler */}
+          <div className="p-6 space-y-6 hover:bg-neutral-50 transition-colors group">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-5">
+                <div className="p-4 rounded-[20px] bg-neutral-50 text-neutral-400 border border-neutral-100 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-100 transition-all duration-300 shadow-sm">
+                  <Watch size={20} className="text-neutral-400 group-hover:text-blue-600 transition-colors" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-black text-neutral-900 uppercase tracking-widest italic leading-none">Daily Safety Tips</p>
+                  <p className="text-[9px] font-bold text-neutral-400 uppercase leading-none tracking-tight italic">Receive scheduled tactical protection & awareness tips</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleToggleTips(!tipsConfig.enabled)}
+                className={cn(
+                  "w-14 h-7 rounded-full transition-all relative p-1 shadow-inner",
+                  tipsConfig.enabled ? "bg-blue-600" : "bg-neutral-200"
+                )}
+              >
+                <motion.div 
+                  animate={{ x: tipsConfig.enabled ? 28 : 0 }}
+                  className="w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center" 
+                >
+                  <div className={cn("w-1 h-1 rounded-full", tipsConfig.enabled ? "bg-blue-600" : "bg-neutral-300")} />
+                </motion.div>
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.2em] ml-1">Delivery Schedule</label>
+                  <select 
+                    value={tipsConfig.time}
+                    onChange={(e) => handleTimeChange(e.target.value)}
+                    disabled={!tipsConfig.enabled}
+                    className="w-full bg-white border border-neutral-100 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-800 outline-none focus:border-blue-600 disabled:opacity-50 transition-all italic appearance-none"
+                  >
+                    <option value="08:00">08:00 AM (Early commute)</option>
+                    <option value="09:00">09:00 AM (Morning brief)</option>
+                    <option value="12:00">12:00 PM (Midday check)</option>
+                    <option value="18:00">06:00 PM (Evening commute)</option>
+                    <option value="20:00">08:00 PM (Perimeter lockup)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.2em] ml-1">Browser Notifications</label>
+                  {permissionStatus === "granted" ? (
+                    <div className="h-10 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                      <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest italic">NATIVE PUSH ENABLED</span>
+                    </div>
+                  ) : permissionStatus === "unsupported" ? (
+                    <div className="h-10 bg-neutral-50 border border-neutral-100 rounded-xl flex items-center justify-center">
+                      <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest italic">NOT SUPPORTED</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleRequestPermission}
+                      className="w-full h-10 bg-neutral-900 hover:bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all"
+                    >
+                      Grant Permission
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleTriggerTestTip}
+                  className="flex-1 h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest italic shadow-lg shadow-blue-500/20 active:scale-98 transition-all flex items-center justify-center gap-2 group-hover:scale-[1.01]"
+                >
+                  <Sparkles size={12} className="animate-pulse" />
+                  Deliver Test Tip Now
+                </button>
+                {tipsHistory.length > 0 && (
+                  <button
+                    onClick={handleClearHistory}
+                    className="p-3 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-2xl transition-all"
+                    title="Purge Tip History"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+
+              {tipsHistory.length > 0 && (
+                <div className="pt-4 border-t border-neutral-50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.2em] ml-1">Previous Safety Tips History</p>
+                    <span className="text-[8px] font-bold text-neutral-400 bg-neutral-100 px-2.5 py-0.5 rounded-full">{tipsHistory.length} Tip{tipsHistory.length > 1 ? 's' : ''} Received</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    {tipsHistory.map((hist, idx) => {
+                      const tip = SAFETY_TIPS.find(t => t.id === hist.tipId);
+                      if (!tip) return null;
+                      return (
+                        <div key={idx} className="p-3.5 bg-neutral-50 border border-neutral-100/50 rounded-xl space-y-1.5 transition-all hover:bg-white hover:shadow-md hover:border-neutral-200">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded uppercase tracking-wider">{tip.category}</span>
+                            <span className="text-[8px] font-semibold text-neutral-400">{new Date(hist.sentAt).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-[10px] font-black text-neutral-800 leading-tight italic">{tip.title}</p>
+                          <p className="text-[9px] text-neutral-500 font-bold leading-normal">{tip.content}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+
 
           {/* Fake Call Settings */}
           <div className="p-6 space-y-6 hover:bg-neutral-50 transition-colors group">
@@ -797,6 +1036,9 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                       <CheckCircle2 size={8} className="text-emerald-500" />
                     </div>
                     <p className="text-[9px] font-bold text-neutral-400">{contact.phone}</p>
+                    {contact.email && (
+                      <p className="text-[8px] font-bold text-blue-500 lowercase tracking-wider mt-0.5">{contact.email}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5">
@@ -1136,6 +1378,13 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                       onChange={e => setNewContact({...newContact, phone: e.target.value})}
                     />
                   </div>
+                  <input 
+                    type="email" 
+                    placeholder="Email Address (Optional)" 
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-colors text-neutral-900 italic"
+                    value={newContact.email}
+                    onChange={e => setNewContact({...newContact, email: e.target.value})}
+                  />
                 </div>
               </div>
 
@@ -1144,7 +1393,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                   onClick={() => {
                     setShowContactModal(false);
                     setEditingContactId(null);
-                    setNewContact({ name: '', phone: '' });
+                    setNewContact({ name: '', phone: '', email: '' });
                     setContactCountryCode(COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233');
                   }}
                   className="py-3 bg-neutral-50 text-neutral-400 rounded-xl font-black active:scale-95 transition-all text-[9px] uppercase tracking-widest italic"
@@ -1163,11 +1412,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showWearableModal && (
-          <WearableCompanion onClose={() => setShowWearableModal(false)} />
-        )}
-      </AnimatePresence>
+
     </div>
   );
 }

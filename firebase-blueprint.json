@@ -85,7 +85,10 @@
         "autoCheckInInterval": { "type": "number" },
         "lastCheckInAt": { "type": "string", "format": "date-time" },
         "followingIds": { "type": "array", "items": { "type": "string" } },
-        "followerIds": { "type": "array", "items": { "type": "string" } }
+        "followerIds": { "type": "array", "items": { "type": "string" } },
+        "points": { "type": "number" },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "completedChallenges": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["uid", "email"]
     },

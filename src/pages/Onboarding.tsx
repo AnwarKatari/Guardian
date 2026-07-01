@@ -51,7 +51,7 @@ export default function Onboarding() {
   });
   const [showManual, setShowManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [newContact, setNewContact] = useState({ name: '', phone: '', countryCode: '+233' });
+  const [newContact, setNewContact] = useState({ name: '', phone: '', email: '', countryCode: '+233' });
 
   const nextStep = () => {
     // Auto-assign avatar if moving from gender to photo step
@@ -83,28 +83,28 @@ export default function Onboarding() {
     try {
       let url = '';
       if (isLocalMode) {
-        setUploadStatus("Local Cryptography...");
+        setUploadStatus("Processing...");
         await new Promise(r => setTimeout(r, 1500));
         url = tempUrl;
       } else {
-        setUploadStatus("Initializing Tunnel...");
+        setUploadStatus("Connecting...");
         await new Promise(r => setTimeout(r, 1000));
         
-        setUploadStatus("Uploading Identity...");
+        setUploadStatus("Uploading photo...");
         const fileName = `${formData.name.replace(/\s+/g, '_') || 'user'}_avatar`;
         const storageRef = ref(storage, `profiles/${user.uid}/${fileName}`);
         await uploadBytes(storageRef, file);
         
-        setUploadStatus("Syncing Global Relay...");
+        setUploadStatus("Syncing...");
         url = await getDownloadURL(storageRef);
       }
 
-      setUploadStatus("Finalizing Profile...");
+      setUploadStatus("Finishing...");
       await minDelay;
       setFormData(prev => ({ ...prev, photoURL: url }));
     } catch (err) {
       console.error(err);
-      setError('Upload synchronization failed');
+      setError('Photo upload failed. Please try again.');
       // Revert if upload failed, but ideally it should keep the preview if possible
     } finally {
       setIsUploading(false);
@@ -115,20 +115,21 @@ export default function Onboarding() {
   const addContact = () => {
     if (!newContact.name || !newContact.phone) return;
     if (formData.emergencyContacts.length >= 3) {
-      alert("CRITICAL LIMIT: System only supports 3 high-priority emergency contacts.");
+      alert("You can add up to 3 emergency contacts.");
       return;
     }
     const contact = {
       id: Math.random().toString(36).substr(2, 9),
       name: newContact.name,
       phone: `${newContact.countryCode}${newContact.phone}`,
+      email: newContact.email.trim() || undefined,
       isVerified: false
     };
     setFormData(prev => ({
       ...prev,
       emergencyContacts: [...prev.emergencyContacts, contact]
     }));
-    setNewContact({ name: '', phone: '', countryCode: '+233' });
+    setNewContact({ name: '', phone: '', email: '', countryCode: '+233' });
     setShowManual(false);
   };
 
@@ -140,7 +141,7 @@ export default function Onboarding() {
   };
 
   const pickFromPhonebook = () => {
-    alert("Phonebook simulation: Contact added!");
+    alert("Demo Mode: Emergency contact added from your list.");
     const contact = {
       id: Math.random().toString(36).substr(2, 9),
       name: "Emergency Contact",
@@ -201,8 +202,8 @@ export default function Onboarding() {
         <div className="flex items-center gap-4">
           <GuardianLogo size={16} pulsing={false} />
           <div>
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-900 leading-none">System Onboarding</h2>
-            <p className="text-[8px] text-neutral-400 font-bold italic">PROTOCOL_INITIALIZATION_v1.0</p>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-900 leading-none">Account Setup</h2>
+            <p className="text-[8px] text-neutral-400 font-bold italic">Complete your profile</p>
           </div>
         </div>
         <div className="flex gap-1">
@@ -241,8 +242,8 @@ export default function Onboarding() {
               className="space-y-6 sm:space-y-8 relative z-10"
             >
               <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-neutral-900">Your <span className="text-blue-600">Profile</span></h3>
-                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Set your display name for identification. This cannot be changed later.</p>
+                <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-neutral-900">Your <span className="text-blue-600">Name</span></h3>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Please enter your name so your contacts can recognize you.</p>
               </div>
 
               <div className="space-y-4">
@@ -293,7 +294,7 @@ export default function Onboarding() {
             >
               <div className="space-y-2">
                 <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-neutral-900">Your <span className="text-blue-600">Gender</span></h3>
-                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Select your gender to assign a tactical avatar.</p>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Select your gender to help us assign a custom avatar.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
@@ -331,7 +332,7 @@ export default function Onboarding() {
             >
               <div className="space-y-2">
                 <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-neutral-900">Profile <span className="text-blue-600">Photo</span></h3>
-                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Upload a clear photo or use your gender-based avatar.</p>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Upload a clear photo or keep your default avatar.</p>
               </div>
 
               <div className="flex flex-col items-center gap-6">
@@ -344,15 +345,16 @@ export default function Onboarding() {
                       <img src={formData.photoURL} alt="Preview" className="w-full h-full object-cover" />
                     )}
                     {isUploading && (
-                      <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-blue-600/80 p-4">
-                        <motion.div 
-                          initial={{ width: "0%" }}
-                          animate={{ width: "100%" }}
-                          transition={{ duration: 5, ease: "linear" }}
-                          className="absolute bottom-6 left-1/4 right-1/4 h-1 bg-white/30 rounded-full overflow-hidden"
-                        />
-                        <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
-                        <span className="text-[8px] font-black text-white uppercase tracking-widest text-center italic">{uploadStatus}</span>
+                      <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm p-4">
+                        <div className="w-4/5 h-1.5 bg-neutral-100 rounded-full overflow-hidden relative mb-2">
+                          <motion.div 
+                            initial={{ width: "0%" }}
+                            animate={{ width: "100%" }}
+                            transition={{ duration: 5, ease: "linear" }}
+                            className="h-full bg-blue-600 rounded-full"
+                          />
+                        </div>
+                        <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest text-center italic">{uploadStatus}</span>
                       </div>
                     )}
                     {!isUploading && !formData.photoURL && (
@@ -395,8 +397,8 @@ export default function Onboarding() {
               className="space-y-6 sm:space-y-8 relative z-10"
             >
               <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-blue-600">Trusted Contacts</h3>
-                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Add at least ONE trusted contact. SOS messages cannot be sent without recipients.</p>
+                <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-blue-600">Emergency Contacts</h3>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Add at least one emergency contact so they can be notified in an emergency.</p>
               </div>
 
               <div className="space-y-4">
@@ -406,14 +408,14 @@ export default function Onboarding() {
                     className="p-4 bg-white border border-neutral-100 rounded-2xl flex flex-col items-center gap-2 hover:border-blue-600/30 transition-all group"
                    >
                      <Contact size={20} className="text-blue-600" />
-                     <span className="text-[8px] font-black uppercase tracking-widest">Select Contacts</span>
+                     <span className="text-[8px] font-black uppercase tracking-widest">Select from Contacts</span>
                    </button>
                    <button 
                     onClick={() => setShowManual(true)}
                     className="p-4 bg-white border border-neutral-100 rounded-2xl flex flex-col items-center gap-2 hover:border-blue-600/30 transition-all"
                    >
                      <UserPlus size={20} className="text-blue-600" />
-                     <span className="text-[8px] font-black uppercase tracking-widest">Manual Add</span>
+                     <span className="text-[8px] font-black uppercase tracking-widest">Add Manually</span>
                    </button>
                 </div>
 
@@ -453,6 +455,13 @@ export default function Onboarding() {
                         className="flex-1 bg-white p-4 rounded-xl border border-blue-100/50 text-[10px] uppercase font-black italic outline-none focus:border-blue-600"
                       />
                     </div>
+                    <input 
+                      type="email"
+                      placeholder="Email Address (Optional)"
+                      value={newContact.email}
+                      onChange={e => setNewContact({...newContact, email: e.target.value})}
+                      className="w-full bg-white p-4 rounded-xl border border-blue-100/50 text-[10px] font-black italic outline-none transition-all focus:border-blue-600"
+                    />
                     <button 
                       onClick={() => addContact()}
                       disabled={!newContact.name || !newContact.phone}
@@ -473,6 +482,9 @@ export default function Onboarding() {
                         <div>
                           <p className="text-[10px] font-black uppercase italic text-neutral-900 leading-none">{contact.name}</p>
                           <p className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest mt-1">{contact.phone}</p>
+                          {contact.email && (
+                            <p className="text-[8px] text-blue-500 font-bold lowercase tracking-wider mt-0.5">{contact.email}</p>
+                          )}
                         </div>
                       </div>
                       <button onClick={() => removeContact(contact.id)} className="text-neutral-300 hover:text-red-500">
@@ -494,8 +506,8 @@ export default function Onboarding() {
               className="space-y-6 sm:space-y-8 relative z-10"
             >
               <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-neutral-900">Emergency <span className="text-blue-600">Message</span></h3>
-                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">Define the message sent in your emergency alerts.</p>
+                <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none text-neutral-900">SOS <span className="text-blue-600">Message</span></h3>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest leading-relaxed italic">This message will be sent to your emergency contacts when you trigger an alert.</p>
               </div>
 
               <div className="p-5 sm:p-6 bg-white border border-neutral-100 rounded-[28px] sm:rounded-[32px] transition-all focus-within:border-blue-500/50 shadow-sm">
@@ -510,11 +522,11 @@ export default function Onboarding() {
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div className="p-3 sm:p-4 bg-white border border-neutral-100 rounded-xl sm:rounded-2xl shadow-sm">
                   <Zap size={14} className="mb-1 sm:mb-2 text-amber-500" />
-                  <p className="text-[7px] sm:text-[8px] font-black uppercase text-neutral-400 leading-tight italic">GPS enabled</p>
+                  <p className="text-[7px] sm:text-[8px] font-black uppercase text-neutral-400 leading-tight italic">GPS Location Enabled</p>
                 </div>
                 <div className="p-3 sm:p-4 bg-white border border-neutral-100 rounded-xl sm:rounded-2xl shadow-sm">
                   <Shield size={14} className="mb-1 sm:mb-2 text-blue-600" />
-                  <p className="text-[7px] sm:text-[8px] font-black uppercase text-neutral-400 leading-tight italic">Cloud relay active</p>
+                  <p className="text-[7px] sm:text-[8px] font-black uppercase text-neutral-400 leading-tight italic">Secure Server Active</p>
                 </div>
               </div>
             </motion.div>
@@ -531,11 +543,11 @@ export default function Onboarding() {
           {isCompleting ? (
             <>
               <Loader2 className="animate-spin" size={16} />
-              Saving Profile...
+              Saving your profile...
             </>
           ) : (
             <>
-              {step === 5 ? "Complete Setup" : "Next Step"}
+              {step === 5 ? "Finish Setup" : "Next Step"}
               <ChevronRight size={16} />
             </>
           )}

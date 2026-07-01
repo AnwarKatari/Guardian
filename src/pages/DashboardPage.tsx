@@ -20,7 +20,11 @@ import {
   XCircle,
   MapPin,
   Clock,
-  Phone
+  Phone,
+  ChevronRight,
+  ShieldAlert,
+  Stethoscope,
+  Flame
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -324,44 +328,65 @@ export default function DashboardPage({ setActiveTab }: { setActiveTab?: (tab: s
           <section className="bg-white border border-neutral-100 rounded-[32px] p-6 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Phone size={14} className="text-red-500" />
-                <h3 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Emergency Services</h3>
+                <Phone size={14} className="text-red-500 animate-pulse" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 italic">Emergency Hub</h3>
               </div>
             </div>
             
-            <div className="grid grid-cols-3 gap-2">
-              <a 
+            <div className="space-y-3">
+              {/* Police */}
+              <motion.a 
                 href={`tel:${emergency.police}`}
-                className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-2xl border border-transparent hover:border-red-200 transition-all group"
+                whileHover={{ y: -3, scale: 1.01 }}
+                className="p-5 bg-white border-2 border-red-100 rounded-[28px] flex items-center justify-between group transition-all shadow-md shadow-red-500/5 hover:border-red-600/30"
               >
-                <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center group-hover:bg-red-600 transition-colors">
-                  <Shield size={14} className="group-hover:text-white text-red-500" />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-red-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-red-200 transition-transform group-hover:scale-105">
+                    <ShieldAlert size={24} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Emergency Dispatch</p>
+                    <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-red-600 transition-colors underline decoration-red-600/20 underline-offset-4">{emergency.police}</p>
+                  </div>
                 </div>
-                <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Police</span>
-                <span className="text-[10px] font-bold text-neutral-900">{emergency.police}</span>
-              </a>
-              
-              <a 
-                href={`tel:${emergency.ambulance}`}
-                className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-2xl border border-transparent hover:border-blue-200 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                   <Activity size={14} className="group-hover:text-white text-blue-600" />
-                </div>
-                <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Medical</span>
-                <span className="text-[10px] font-bold text-neutral-900">{emergency.ambulance}</span>
-              </a>
+                <ChevronRight size={18} className="text-neutral-200 group-hover:text-red-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+              </motion.a>
 
-              <a 
-                href={`tel:${emergency.fire}`}
-                className="flex flex-col items-center gap-2 p-3 bg-neutral-50 rounded-2xl border border-transparent hover:border-amber-200 transition-all group"
+              {/* Medical */}
+              <motion.a 
+                href={`tel:${emergency.ambulance}`}
+                whileHover={{ y: -3, scale: 1.01 }}
+                className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-blue-500/30"
               >
-                <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center group-hover:bg-amber-600 transition-colors">
-                  <Zap size={14} className="group-hover:text-white text-amber-500" />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                    <Stethoscope size={24} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Medical Services</p>
+                    <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-blue-600 transition-colors underline decoration-blue-600/10 underline-offset-4">{emergency.ambulance}</p>
+                  </div>
                 </div>
-                <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Fire</span>
-                <span className="text-[10px] font-bold text-neutral-900">{emergency.fire}</span>
-              </a>
+                <ChevronRight size={18} className="text-neutral-200 group-hover:text-blue-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+              </motion.a>
+
+              {/* Fire */}
+              <motion.a 
+                href={`tel:${emergency.fire}`}
+                whileHover={{ y: -3, scale: 1.01 }}
+                className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-amber-500/30"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all shadow-inner">
+                    <Flame size={24} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Fire Services</p>
+                    <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-amber-500 transition-colors underline decoration-amber-500/10 underline-offset-4">{emergency.fire}</p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-neutral-200 group-hover:text-amber-500 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+              </motion.a>
             </div>
           </section>
         </aside>

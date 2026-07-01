@@ -19,7 +19,9 @@ import {
   Eye,
   EyeOff,
   Fingerprint,
-  RotateCcw
+  RotateCcw,
+  Flame,
+  Stethoscope
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from '../contexts/LocationContext';
@@ -39,15 +41,26 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
   const [progress, setProgress] = useState(0);
   const [showFakeCall, setShowFakeCall] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [holdWarning, setHoldWarning] = useState<string | null>(null);
   
   const { user, profile } = useAuth();
   const { triggerSOS, addLog, checkInTimer, startCheckInTimer, cancelCheckInTimer } = useSafety();
   const timerRef = useRef<any>(null);
   const progressIntervalRef = useRef<any>(null);
+  const warningTimeoutRef = useRef<any>(null);
+  const progressRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  const HOLD_DURATION = 3000;
+  const HOLD_DURATION = 5000;
   const CIRCUMFERENCE = 740; // Approx 2 * pi * (280 * 0.42)
+
+  const triggerWarning = (msg: string) => {
+    setHoldWarning(msg);
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    warningTimeoutRef.current = setTimeout(() => {
+      setHoldWarning(null);
+    }, 5000);
+  };
 
   const playFeedbackSound = (freq = 440, duration = 0.1) => {
     try {
@@ -78,11 +91,24 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
 
   const startHold = (e: React.MouseEvent | React.TouchEvent) => {
     if (isAlertActive) return;
+    
+    // Prevent double triggers / mouse simulation emulation
+    e.preventDefault();
+    if (isActivating) return;
+
+    // Clear any previous active timers/intervals and warnings
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    
     setIsActivating(true);
     setProgress(0);
+    progressRef.current = 0;
+    setHoldWarning(null);
+
     // Heavy, persistent and serious vibration pattern designed to simulate an urgent hold
-    // alternate 600ms on, 100ms off for a total of over 3 seconds
-    triggerHaptic([600, 100, 600, 100, 600, 100, 600, 100, 600]);
+    // alternate 600ms on, 100ms off for a total of over 5 seconds
+    triggerHaptic([600, 100, 600, 100, 600, 100, 600, 100, 600, 100, 600, 100, 600, 100, 600]);
     playFeedbackSound(440, 0.1);
 
     const startTime = Date.now();
@@ -90,6 +116,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
       const elapsed = Date.now() - startTime;
       const p = Math.min(elapsed / HOLD_DURATION, 1);
       setProgress(p);
+      progressRef.current = p;
       if (p < 1) {
         // High-frequency sound feedback matching the vibration intensity
         if (Math.floor(elapsed / 250) > Math.floor((elapsed - 50) / 250)) {
@@ -99,17 +126,40 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     }, 16);
 
     timerRef.current = setTimeout(async () => {
-      clearInterval(progressIntervalRef.current);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      progressRef.current = 1;
       handleTrigger();
     }, HOLD_DURATION);
   };
 
-  const endHold = () => {
+  const endHold = (e?: React.MouseEvent | React.TouchEvent) => {
     if (isAlertActive) return;
-    clearInterval(progressIntervalRef.current);
-    clearTimeout(timerRef.current);
+    if (e) e.preventDefault();
+
+    const wasActivating = isActivating;
+
+    // Clear active intervals/timers immediately
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // If they let go before progress reaches 1, reset and show hold warning
+    if (wasActivating && progressRef.current < 1) {
+      triggerWarning("Do not lift your finger up until countdown finishes! Hold for a full 5 seconds to send SOS.");
+      triggerHaptic([150, 50, 150]); // Short warning buzz
+    }
+
     setIsActivating(false);
     setProgress(0);
+    progressRef.current = 0;
     // Cancel the ongoing vibration immediately when user lets go
     triggerHaptic(0);
   };
@@ -233,6 +283,23 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
         )}
       </AnimatePresence>
 
+      {/* Warning Toast */}
+      <AnimatePresence>
+        {holdWarning && (
+          <motion.div 
+            initial={{ y: -20, x: "-50%", opacity: 0 }}
+            animate={{ y: 0, x: "-50%", opacity: 1 }}
+            exit={{ y: -20, x: "-50%", opacity: 0 }}
+            className="fixed top-24 left-1/2 z-[60] flex items-center gap-3 bg-red-950 text-white px-6 py-3 rounded-full shadow-2xl border border-red-800"
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)]"></div>
+            <span className="text-[10px] font-black uppercase tracking-[0.1em] pt-0.5 italic text-red-400 font-display">
+              {holdWarning}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Content Area - Centered and Firm */}
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6 py-4">
         
@@ -328,6 +395,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                 onMouseLeave={endHold}
                 onTouchStart={startHold}
                 onTouchEnd={endHold}
+                onTouchCancel={endHold}
                 animate={
                   isAlertActive ? 
                   { scale: 1, backgroundColor: "#09090b" } : 
@@ -366,15 +434,18 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                       animate={{ scale: 1, opacity: 1 }}
                       className="flex flex-col items-center text-white"
                     >
-                      <div className="relative mb-3">
-                        <Fingerprint size={64} className="animate-pulse text-red-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]" />
+                      <div className="relative mb-2">
+                        <Fingerprint size={56} className="animate-pulse text-red-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]" />
                         <motion.div 
                           animate={{ top: ["0%", "100%", "0%"] }}
                           transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
                           className="absolute left-0 w-full h-[2px] bg-white brightness-200 shadow-[0_0_10px_white]"
                         />
                       </div>
-                      <span className="font-black text-lg tracking-widest uppercase italic font-display text-white">Transmitting</span>
+                      <span className="font-black text-xs tracking-widest uppercase italic font-display text-white">Transmitting</span>
+                      <span className="font-black text-xl tracking-tighter text-yellow-300 uppercase italic mt-1 font-display">
+                        Hold {Math.max(1, Math.ceil(5 - progress * 5))}s
+                      </span>
                     </motion.div>
                   ) : (
                     <motion.div 
@@ -513,24 +584,66 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
               </button>
             </div>
 
-            <div className="bg-white border border-neutral-100 rounded-[40px] p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4 px-2">
-                <div className="w-1 h-3 bg-blue-600 rounded-full" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-400 italic">Emergency Matrix</h3>
+            <div className="bg-white border border-neutral-100 rounded-[40px] p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-1.5 h-3.5 bg-red-600 rounded-full animate-pulse" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 italic">Emergency Hub Contacts</h3>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <a href={`tel:${emergencyData.police}`} className="flex flex-col items-center py-4 rounded-[32px] hover:bg-blue-50/50 transition-all group border border-transparent hover:border-neutral-100">
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform"><Shield size={20} /></div>
-                  <span className="text-[9px] font-black uppercase tracking-wider text-neutral-500 italic">Police</span>
-                </a>
-                <a href={`tel:${emergencyData.ambulance}`} className="flex flex-col items-center py-4 rounded-[32px] hover:bg-red-50/50 transition-all group border border-transparent hover:border-neutral-100">
-                  <div className="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform"><Activity size={20} /></div>
-                  <span className="text-[9px] font-black uppercase tracking-wider text-neutral-500 italic">Med</span>
-                </a>
-                <a href={`tel:${emergencyData.fire}`} className="flex flex-col items-center py-4 rounded-[32px] hover:bg-orange-50/50 transition-all group border border-transparent hover:border-neutral-100">
-                  <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform"><Zap size={20} /></div>
-                  <span className="text-[9px] font-black uppercase tracking-wider text-neutral-500 italic">Fire</span>
-                </a>
+              
+              <div className="space-y-3">
+                {/* Police */}
+                <motion.a 
+                  href={`tel:${emergencyData.police}`}
+                  whileHover={{ y: -3, scale: 1.01 }}
+                  className="p-5 bg-white border-2 border-red-100 rounded-[28px] flex items-center justify-between group transition-all shadow-md shadow-red-500/5 hover:border-red-600/30"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-red-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-red-200 transition-transform group-hover:scale-105">
+                      <ShieldAlert size={24} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Emergency Dispatch</p>
+                      <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-red-600 transition-colors underline decoration-red-600/20 underline-offset-4">{emergencyData.police}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-neutral-200 group-hover:text-red-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                </motion.a>
+
+                {/* Medical */}
+                <motion.a 
+                  href={`tel:${emergencyData.ambulance}`}
+                  whileHover={{ y: -3, scale: 1.01 }}
+                  className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-blue-500/30"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                      <Stethoscope size={24} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Medical Services</p>
+                      <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-blue-600 transition-colors underline decoration-blue-600/10 underline-offset-4">{emergencyData.ambulance}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-neutral-200 group-hover:text-blue-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                </motion.a>
+
+                {/* Fire */}
+                <motion.a 
+                  href={`tel:${emergencyData.fire}`}
+                  whileHover={{ y: -3, scale: 1.01 }}
+                  className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-amber-500/30"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all shadow-inner">
+                      <Flame size={24} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Fire Services</p>
+                      <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-amber-500 transition-colors underline decoration-amber-500/10 underline-offset-4">{emergencyData.fire}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-neutral-200 group-hover:text-amber-500 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                </motion.a>
               </div>
             </div>
           </motion.div>

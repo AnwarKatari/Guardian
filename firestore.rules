@@ -38,8 +38,7 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow read: if true;
       
       allow create: if isOwner(userId) && incoming().uid == request.auth.uid;
       
@@ -76,6 +75,9 @@ service cloud.firestore {
              (data.get('trustedContactIds', []) is list && data.get('trustedContactIds', []).size() <= 100) &&
              (data.get('followingIds', []) is list && data.get('followingIds', []).size() <= 1000) &&
              (data.get('followerIds', []) is list && data.get('followerIds', []).size() <= 1000) &&
+             (data.get('points', 0) is number) &&
+             (data.get('badges', []) is list && data.get('badges', []).size() <= 100) &&
+             (data.get('completedChallenges', []) is list && data.get('completedChallenges', []).size() <= 100) &&
              (data.get('countryCode', 'GH') is string && data.get('countryCode', 'GH').size() <= 10) &&
              (data.get('phoneNumber', '') is string && data.get('phoneNumber', '').size() <= 32) &&
              (data.get('evidenceSync', true) is bool) &&
@@ -241,6 +243,18 @@ service cloud.firestore {
       allow update: if isVerified() && resource.data.receiverId == request.auth.uid && (
         incoming().diff(existing()).affectedKeys().hasOnly(['read'])
       );
+    }
+
+    // Temporary password reset tokens for custom SMTP recovery
+    match /temp_resets/{tokenId} {
+      allow get, create, delete: if true;
+      allow list, update: if false;
+    }
+
+    // Simulated email logs for fallback monitoring
+    match /simulated_emails/{emailId} {
+      allow create: if true;
+      allow read, update, delete: if false;
     }
 
     function isTrusted(userId) {

@@ -1,15 +1,20 @@
-# Ai-POWERED: Tactical Safety Engine
+# Ai-POWERED: Tactical Safety Engine & Guardian Academy
 
-Ai-POWERED is a high-performance personal safety application built for high-stakes environments. It combines a military-grade tactical interface with robust emergency coordination tools.
+Ai-POWERED is a high-performance personal safety and emergency coordination application built for high-stakes environments. It combines a military-grade tactical interface with robust emergency coordination tools and a proactive community safety gamification system.
 
 ## 🛡️ Core Capabilities
 
-- **Tactical SOS**: Instant broadcast of your distress signal and realtime GPS coordinates to your trusted circle.
-- **Native SMS Bridge**: Secure integration with mobile messaging protocols for high-reliability alerts.
+- **Guardian Academy**: A complete gamification engine designed to reward operators with safety points and tactical badges (e.g., Vanguard Scout, Sentinel Shield, Apex Guardian) for completing proactive defense challenges and contributing critical regional safety intel.
+- **Global Leaderboard**: Friendly competition platform with built-in simulated companion profiles (Aegis Supervisor, Sentinel Beta, and Grid Navigator) to maintain user engagement and tracking even in low-connectivity or offline zones.
+- **Tactical SOS**: Persistent physical countdown interface with dynamic GPS coordinate broadcasting to trusted contacts.
+- **High-Intensity Haptics**: Powerful tactile reassurance utilizing a continuous `600ms on, 100ms off` pulse pattern during active SOS hold phases, with a triple-confirmation pulse upon dispatch.
+- **Native SMS Bridge with Fallback**: Secure integration with mobile messaging protocols (Arkesel, SMSOnlineGH, Twilio) that automatically engages a robust `SIMULATION_FALLBACK` protocol upon gateway credit/balance failures, ensuring the operator interface remains reliable and responsive.
 - **Biometric Identity**: Secure profile management with cloud-synced tactical identification.
 - **Safety Check-ins**: Automated timers that trigger alerts if you fail to check in.
-- **Tactical Hub**: One-tap access to local emergency services (Ambulance, Fire, Police).
+- **Tactical Hub & Integrated Dashboard Emergency Contacts**: One-tap emergency dispatch contacts (Ambulance, Fire, Police) are integrated directly on the main Login Dashboard and the active SOS page. Includes dynamic, country-specific hotline mapping with bold high-contrast status cards, oversized display typography, and responsive micro-animations just like the full Emergency Hub interface.
+- **Daily Safety Tips Scheduler**: A scheduled tactical intelligence delivery system that triggers localized protection and awareness tips based on operator schedules. Complete with browser push notification support, configurable timezone-based delivery, and persistent localized history logs.
 - **Onboarding Protocol**: Guided setup for new operators to initialize their defense profile.
+- **Offline Maps**: Downloadable regional map components to maintain situational awareness in full communication blackout zones.
 
 ---
 

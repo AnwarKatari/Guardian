@@ -29,6 +29,8 @@ export interface UserProfile {
   countryCode?: string;
   phoneNumber?: string;
   bio?: string;
+  securityQuestion?: string;
+  securityAnswer?: string;
   lastLocation?: {
     lat: number;
     lng: number;
@@ -54,6 +56,9 @@ export interface UserProfile {
   lastCheckInAt?: string;
   followingIds?: string[];
   followerIds?: string[];
+  points?: number;
+  badges?: string[];
+  completedChallenges?: string[];
 }
 
 export interface OfflineRegion {
@@ -70,6 +75,7 @@ export interface EmergencyContact {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   isVerified: boolean;
   verificationCode?: string;
 }

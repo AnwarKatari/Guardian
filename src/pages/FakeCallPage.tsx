@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
 export default function FakeCallPage({ setActiveTab }: { setActiveTab?: (tab: string) => void }) {
-  const { profile } = useAuth();
+  const { profile, updateProfile } = useAuth();
   const [status, setStatus] = useState<'idle' | 'counting' | 'ringing' | 'active' | 'ended'>('idle');
   const [timer, setTimer] = useState(profile?.fakeCallSettings?.triggerDelay || 5);
   const [activeCallTime, setActiveCallTime] = useState(0);
@@ -99,8 +99,20 @@ export default function FakeCallPage({ setActiveTab }: { setActiveTab?: (tab: st
     }
   };
 
-  const answerCall = () => {
+  const answerCall = async () => {
     setStatus('active');
+    if (profile && updateProfile) {
+      const completed = profile.completedChallenges || [];
+      if (!completed.includes('mock-test')) {
+        try {
+          await updateProfile({
+            completedChallenges: [...completed, 'mock-test']
+          });
+        } catch (e) {
+          console.error("Failed to unlock mock-test challenge:", e);
+        }
+      }
+    }
   };
 
   const endCall = () => {
