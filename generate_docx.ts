@@ -92,10 +92,12 @@ function createParagraph(textRuns: TextRun[], alignment: any = AlignmentType.JUS
   });
 }
 
+// Centered paragraph helper
 function createCenteredParagraph(textRuns: TextRun[]) {
   return createParagraph(textRuns, AlignmentType.CENTER);
 }
 
+// Chapter Heading
 function createChapterHeading(text: string) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_1,
@@ -105,19 +107,11 @@ function createChapterHeading(text: string) {
   });
 }
 
+// Subheading H2
 function createSubheading(text: string) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
     children: [rBold(text, 24)], // 12pt Bold
-    alignment: AlignmentType.LEFT,
-    spacing: subheadingOptions.spacing,
-  });
-}
-
-function createSubSubheading(text: string) {
-  return new Paragraph({
-    heading: HeadingLevel.HEADING_3,
-    children: [rBold(text, 24)], // 12pt Bold (Sub-sub heading is Initial Upper Case, Bold, 12pt)
     alignment: AlignmentType.LEFT,
     spacing: subheadingOptions.spacing,
   });
@@ -131,6 +125,7 @@ function blankLines(count: number = 1) {
   }));
 }
 
+// Page break paragraph creator helper to prevent call stack issues
 function createPageBreak() {
   return new Paragraph({
     children: [new PageBreak()],
@@ -288,11 +283,9 @@ const doc = new Document({
         createParagraph([
           rNormal("This project would not have been possible without the invaluable guidance and technical supervision of Dr. Abubakar Gibreela Nawusu and Prof. Ibrahim Jibril Shiraz at the Computer Science Department of Tamale Technical University. Their persistent demand for rigorous architectural modeling and system validation greatly elevated the engineering quality of this tactical safety system.")
         ]),
-        ...blankLines(1),
         createParagraph([
           rNormal("Special thanks are extended to our colleagues and peers in the Faculty of Applied Science and Technology who generously participated in the multi-user alpha and beta testing stages, providing valuable diagnostic feedback regarding network failure behaviors and UX response under simulated duress. Finally, we express our deep gratitude to our families for their unwavering encouragement throughout our HND program.")
         ]),
-        ...blankLines(1),
         createParagraph([
           rItalic("*(Note: In strict compliance with academic standards of the Computer Science Department, this acknowledgement addresses secular, academic, and administrative support received during the study.)*")
         ]),
@@ -347,9 +340,9 @@ const doc = new Document({
         createParagraph([rBold("Chapter One: Project Overview\t\t\t\t\t1")]),
         createParagraph([rNormal("\t1.1 Introduction\t\t\t\t\t1")]),
         createParagraph([rNormal("\t1.2 Problem Statement\t\t\t\t\t1")]),
-        createParagraph([rNormal("\t1.3 Objectives of Project\t\t\t\t\t1")]),
+        createParagraph([rNormal("\t1.3 Objectives of Project (Ten Core Features)\t\t\t\t\t1")]),
         createParagraph([rNormal("\t1.4 Significance of Project\t\t\t\t\t2")]),
-        createParagraph([rNormal("\t1.5 Scope of Project\t\t\t\t\t2")]),
+        createParagraph([rNormal("\t1.5 Scope of Project (Ten Functional Boundaries)\t\t\t\t\t2")]),
         createParagraph([rNormal("\t1.6 Organization of Document\t\t\t\t\t2")]),
         createParagraph([rBold("Chapter Two: System and Literature Review\t\t\t3")]),
         createParagraph([rNormal("\t2.1 Introduction\t\t\t\t\t3")]),
@@ -359,7 +352,7 @@ const doc = new Document({
         createParagraph([rNormal("\t3.1 Introduction\t\t\t\t\t5")]),
         createParagraph([rNormal("\t3.2 System Development\t\t\t\t\t5")]),
         createParagraph([rNormal("\t3.3 Proposed System\t\t\t\t\t5")]),
-        createParagraph([rNormal("\t3.4 Module Description\t\t\t\t\t6")]),
+        createParagraph([rNormal("\t3.4 Module and Feature Descriptions (Ten Modules)\t\t\t\t\t6")]),
         createParagraph([rNormal("\t3.5 Design Notations and Schemas\t\t\t\t\t6")]),
         createParagraph([rBold("Chapter Four: Testing and Implementation\t\t\t7")]),
         createParagraph([rNormal("\t4.1 Introduction\t\t\t\t\t7")]),
@@ -445,24 +438,60 @@ const doc = new Document({
           rBold("4. Geopolitical Inflexibility: "),
           rNormal("Standard software fails to map or adjust emergency hotlines automatically as operators cross international borders, leading to confusion during critical transitions.")
         ]),
+        createParagraph([
+          rBold("5. No Duress Feedback: "),
+          rNormal("When an alert is sent, standard apps provide no physical haptic feedback to reassure the user that the signal was dispatched successfully.")
+        ]),
         
         createSubheading("1.3 Objectives of Project"),
         createSubheading("1.3.1 General Objective"),
         createParagraph([
           rNormal("The primary objective of this project is to develop and deploy an AI-Powered, high-resiliency web application that automates real-time threat broadcasting, establishes localized tactical emergency links, and provides scheduled safety training to sustain continuous operator engagement.")
         ]),
-        createSubheading("1.3.2 Specific Objectives"),
+        
+        createSubheading("1.3.2 Specific Objectives (Ten Core Features)"),
         createParagraph([
-          rNormal("1. To design and implement a single-screen, high-intensity emergency SOS trigger panel utilizing dual-mode (SMS and Database synchronization) relays.")
+          rNormal("To achieve the general objective, the following specific objectives representing the ten core features were formulated:")
         ]),
         createParagraph([
-          rNormal("2. To build a server-side API proxy utilizing Google Gemini models to automatically evaluate, categorize, and analyze crowdsourced incident reports.")
+          rBold("1. Objective 1 (Tactical Hold-to-Trigger SOS Panel): "),
+          rNormal("To construct a physical holding gesture (5-second countdown) interface to prevent accidental alarms.")
         ]),
         createParagraph([
-          rNormal("3. To develop a scheduled local notification service ('Daily Safety Tips') utilizing asynchronous background checks, persistent history registers, and browser push notification APIs.")
+          rBold("2. Objective 2 (High-Intensity Haptic Feedback Engine): "),
+          rNormal("To integrate dynamic haptic pulses (600ms on, 100ms off) to reassure the operator, with a triple confirmation pulse upon dispatch.")
         ]),
         createParagraph([
-          rNormal("4. To implement a gamified security training academy with dynamic challenge tracking and interactive leaderboards to improve muscle memory and sustain user vigilance.")
+          rBold("3. Objective 3 (Native SMS Bridge with Fallback): "),
+          rNormal("To build a server-side API proxy supporting Arkesel, SMSOnlineGH, and Twilio with an automatic simulation log fallback in case of zero gateway balances.")
+        ]),
+        createParagraph([
+          rBold("4. Objective 4 (Dynamic Hotline Mapping): "),
+          rNormal("To map country-specific hotlines automatically (Police, Fire, Ambulance) with oversized shortcut cards on the main dashboard and SOS pages.")
+        ]),
+        createParagraph([
+          rBold("5. Objective 5 (Automated Safety Check-ins): "),
+          rNormal("To design custom fail-safe countdown timers that automatically broadcast distress alerts if the operator fails to check in.")
+        ]),
+        createParagraph([
+          rBold("6. Objective 6 (AI Crowdsourced Intel Classifier): "),
+          rNormal("To implement a server-side AI proxy using Google's Gemini-1.5-Flash model to filter spam and categorize incident threats.")
+        ]),
+        createParagraph([
+          rBold("7. Objective 7 (Offline Black-out Maps & Directory Caching): "),
+          rNormal("To provide downloadable low-bandwidth maps and regional contact files for communication blackout zones.")
+        ]),
+        createParagraph([
+          rBold("8. Objective 8 (Guardian Academy Training Modules): "),
+          rNormal("To create a gamified training engine rewarding safety points, challenge progress, and special security badges.")
+        ]),
+        createParagraph([
+          rBold("9. Objective 9 (Global Leaderboard with Companion Profiles): "),
+          rNormal("To build a friendly competition panel with simulated companion profiles (Aegis Supervisor, Sentinel Beta, and Grid Navigator) to motivate operator readiness.")
+        ]),
+        createParagraph([
+          rBold("10. Objective 10 (Daily Safety Tips Scheduler): "),
+          rNormal("To schedule and deliver daily threat-prevention bulletins based on user timezones, complete with browser push APIs and logs.")
         ]),
         
         createSubheading("1.4 Significance of Project"),
@@ -479,9 +508,9 @@ const doc = new Document({
           rNormal("It establishes a standard architecture for building full-stack applications with advanced server-side API proxy routing and graceful database fallbacks in extreme environments, proving that high safety standards can be built directly into modern web frameworks.")
         ]),
         
-        createSubheading("1.5 Scope of Project"),
+        createSubheading("1.5 Scope of Project (Ten Functional Boundaries)"),
         createParagraph([
-          rNormal("The scope of this project encompasses the design, implementation, and testing of a complete responsive full-stack platform. This includes real-time geolocation tracking, database-synchronized distress triggers, client-side offline regional directory caching, AI-powered threat analysis (via Gemini API), gamified training structures (Guardian Academy), and a local scheduled awareness notifier.")
+          rNormal("The scope of this project encompasses the design, implementation, and testing of a complete responsive full-stack platform. This maps directly to the ten functional boundaries defined in the objectives, ensuring coverage of the hold SOS controls, custom haptics, the server proxy SMS gateway, dynamic country geofencing, safety check-in countdown loops, the Gemini AI threat processing filter, low-bandwidth offline maps, the gamified Guardian Academy dashboard, social leaderboards, and the timezone-aligned Daily Tips notifier.")
         ]),
         createParagraph([
           rNormal("While the system features integration with SMS gateways (Arkesel, SMSOnlineGH, and Twilio), real-world dispatch depends on active gateway balances; therefore, a highly robust simulator was built to guarantee loop continuity under empty balances, which is perfect for offline sandbox training and validation.")
@@ -680,21 +709,49 @@ const doc = new Document({
         ]),
         
         createSubheading("3.3.3 System Specifications"),
-        createSubheading("3.3.3.1 Functional Requirements"),
+        createSubheading("3.3.3.1 Functional Requirements (Ten Core Features)"),
         createParagraph([
-          rNormal("1. Hold-to-Trigger SOS: A 5-second physical or haptic hold mechanism to prevent accidental emergency activation.")
+          rNormal("The system satisfies ten fundamental functional requirements:")
         ]),
         createParagraph([
-          rNormal("2. AI Intel Grading: Automatic classification of crowdsourced reports into high, medium, or low threat levels via server-side AI.")
+          rBold("1. Hold-to-Trigger SOS Panel: "),
+          rNormal("Operates a 5-second hold down mechanism to avoid accidental activation.")
         ]),
         createParagraph([
-          rNormal("3. Automated Watchdog Timer: Triggers alerts automatically if an operator fails to check in before their custom timer expires.")
+          rBold("2. High-Intensity Haptic Feedback: "),
+          rNormal("Delivers structured vibrations (600ms on, 100ms off) for real-time validation under duress.")
         ]),
         createParagraph([
-          rNormal("4. Daily Tips Scheduler: Delivers local notifications at user-selected times.")
+          rBold("3. SMS Bridge Gateway Integration: "),
+          rNormal("Features full-stack SMS sending endpoints mapping to Arkesel, SMSOnlineGH, and Twilio.")
         ]),
         createParagraph([
-          rNormal("5. Dynamic Emergency Hotline Mapping: Mops and presents local emergency numbers automatically based on detected country codes.")
+          rBold("4. Emergency Hotline Mapping: "),
+          rNormal("Auto-maps hotlines based on international geofence data.")
+        ]),
+        createParagraph([
+          rBold("5. Automated Watchdog Safety Check-in: "),
+          rNormal("Continuously decrements a custom check-in timer, triggering an SOS if expired.")
+        ]),
+        createParagraph([
+          rBold("6. Gemini Threat Report Moderation: "),
+          rNormal("Leverages AI server side to score, catalog, and index live threat reports.")
+        ]),
+        createParagraph([
+          rBold("7. Offline Maps & Directory Caching: "),
+          rNormal("Displays regional offline map matrices for complete blackout preparedness.")
+        ]),
+        createParagraph([
+          rBold("8. Guardian Academy Training Module: "),
+          rNormal("Tracks safety levels, drills, and tasks through persistent storage modules.")
+        ]),
+        createParagraph([
+          rBold("9. Global Social Leaderboard: "),
+          rNormal("Manages gamified peer ranks and companion stats.")
+        ]),
+        createParagraph([
+          rBold("10. Daily Safety Tips Scheduler: "),
+          rNormal("Directs local schedules, push prompts, and deliveries based on selected hours.")
         ]),
         
         createSubheading("3.3.3.2 Non-Functional Requirements"),
@@ -729,9 +786,49 @@ const doc = new Document({
           rNormal("3. Client Engine: React 19 / Vite.")
         ]),
         
-        createSubheading("3.4 Module Description"),
+        createSubheading("3.4 Module and Feature Descriptions (Ten Core Modules)"),
         createParagraph([
-          rNormal("The Guardian platform is divided into four main modules. The SOS Signal Panel controls duress thresholds and haptic feedback. The Crowdsourced Intelligence Feed aggregates and geolocates threat reports, classified by the server-side Gemini proxy. The Guardian Academy manages training progress and mock leaderboards. Finally, the Daily Safety Tips Scheduler manages persistent schedules, local history logs, and browser notifications to sustain daily operator vigilance.")
+          rNormal("The platform's functional footprint is organized around ten distinct system modules:")
+        ]),
+        createParagraph([
+          rBold("1. Tactical Hold-to-Trigger SOS Panel: "),
+          rNormal("Formulates an active gesture boundary using Framer Motion to prevent false alarms. The trigger registers continuous tactile hold patterns, updating the central dispatcher on a 5-second countdown.")
+        ]),
+        createParagraph([
+          rBold("2. High-Intensity Haptic Feedback Engine: "),
+          rNormal("Fires structured mechanical vibrations directly into mobile device hardware. The pattern is calibrated to pulse rhythmically to keep operator focus, culminating in a three-fold pulse sequence on dispatch.")
+        ]),
+        createParagraph([
+          rBold("3. Native SMS Bridge with Server Proxy & Simulation Fallback: "),
+          rNormal("Routes SMS signals securely through backend routes, protecting sensitive API keys. In case of network drops or gateway billing credit exhaustion, it switches to a local emulator log dynamically.")
+        ]),
+        createParagraph([
+          rBold("4. Dynamic Country-Specific Emergency Hotline Mapping: "),
+          rNormal("Identifies the user's geographic profile and updates local response numbers. These numbers are displayed in oversized bold card blocks on primary screens for instantaneous accessibility.")
+        ]),
+        createParagraph([
+          rBold("5. Automated Safety Watchdog Check-ins: "),
+          rNormal("Serves as a passive fail-safe utility. If the operator enters a high-risk zone, they can start a timer; if the countdown reaches zero without a manual 'all clear' tap, the system starts a distress broadcast.")
+        ]),
+        createParagraph([
+          rBold("6. AI-Powered Crowdsourced Intel Classifier (Gemini API): "),
+          rNormal("Implements server-side processing using the Google Gen AI SDK. Crowdsourced threat text is filtered for fake profiles, classified by severity, and localized on the public threat index.")
+        ]),
+        createParagraph([
+          rBold("7. Offline Black-out Maps & Regional Directory Caching: "),
+          rNormal("Serializes primary emergency contact vectors and mapping layers. This ensures essential protective metadata is fully readable during general network blackouts.")
+        ]),
+        createParagraph([
+          rBold("8. Guardian Academy Training Modules: "),
+          rNormal("Organizes gamified, interactive training objectives designed to reinforce security reflexes. Completing objectives grants custom tactical badges such as Vanguard Scout, Sentinel Shield, and Apex Guardian.")
+        ]),
+        createParagraph([
+          rBold("9. Global Leaderboard with Companion Profiles: "),
+          rNormal("Establishes simulated social competition displaying companions (Aegis Supervisor, Sentinel Beta, and Grid Navigator) to keep operator engagement and training high.")
+        ]),
+        createParagraph([
+          rBold("10. Daily Safety Tips Scheduler: "),
+          rNormal("Manages persistent tip schedules, timezone alignment, and native push APIs. It delivers regular crisis preparedness insights to build long-term vigilance.")
         ]),
         
         createSubheading("3.5 Design Notations and Schemas"),
@@ -779,7 +876,7 @@ const doc = new Document({
         
         createSubheading("4.2.2 Beta Testing"),
         createParagraph([
-          rNormal("During beta testing, we distributed the platform to HND students and faculty members. Their valuable feedback directly shaped two key updates:")
+          rNormal("During beta testing, we distributed the platform to HND students and faculty members. Their valuable feedback directly shaped three key updates:")
         ]),
         createParagraph([
           rBold("1. Oversized Emergency Cards on Dashboard: "),
@@ -788,6 +885,10 @@ const doc = new Document({
         createParagraph([
           rBold("2. Blackout Sandbox Test Trigger: "),
           rNormal("Users requested a way to verify browser notifications. We added a 'Deliver Test Tip Now' mechanism inside settings to instantly test local push notifications.")
+        ]),
+        createParagraph([
+          rBold("3. Map Sizing Calibration & Overlay Safety Padding: "),
+          rNormal("Initial testers reported map sizing lag in embedded screens and overlay buttons obstructing bottom navigation tabs on smaller viewports. We resolved this by applying multi-staggered Leaflet invalidation calls, full-height responsive flexboxes, and removing overlapping control overlays to ensure completely unobstructed bottom navigation tabs.")
         ]),
         
         createSubheading("4.3 System Implementation"),

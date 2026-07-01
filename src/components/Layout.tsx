@@ -383,9 +383,14 @@ export default function Layout({
         {/* Main Content */}
         <main className={cn(
           "flex-1 relative custom-scrollbar",
-          activeTab === 'messages' ? "overflow-hidden" : "overflow-y-auto pb-24 md:pb-12"
+          (activeTab === 'messages' || activeTab === 'map') ? "overflow-hidden h-full flex flex-col" : "overflow-y-auto pb-24 md:pb-12"
         )}>
-          {children}
+          <div className={cn(
+            "w-full mx-auto relative",
+            activeTab === 'map' ? "h-full w-full flex-1 flex flex-col" : "min-h-full max-w-7xl px-0 sm:px-6 md:px-8 lg:px-12"
+          )}>
+            {children}
+          </div>
         </main>
       </div>
 

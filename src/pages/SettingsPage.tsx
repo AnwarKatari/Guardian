@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   User, 
   Users, 
@@ -154,6 +154,18 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("Initializing...");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const pendingMsg = localStorage.getItem('settings_success_message');
+    if (pendingMsg) {
+      setSuccessMessage(pendingMsg);
+      localStorage.removeItem('settings_success_message');
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handleUpdateName = async () => {
     if (!displayName.trim()) return;
@@ -425,20 +437,6 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
     <div className="p-4 sm:p-6 space-y-6 pb-32 font-sans bg-white text-neutral-900 min-h-screen relative overflow-hidden">
       {/* Background HUD Ambience */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.02)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,white,transparent)] pointer-events-none" />
-
-      <AnimatePresence>
-        {successMessage && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl shadow-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-emerald-100 backdrop-blur-md italic"
-          >
-            <CheckCircle2 size={12} />
-            {successMessage}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="flex items-center justify-between relative z-10 pt-4">
         <div className="space-y-1">

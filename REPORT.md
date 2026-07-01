@@ -93,9 +93,9 @@ The system was developed using React 19, TypeScript, and Tailwind CSS for the cl
   - 1.2 Problem Statement
   - 1.3 Objectives of Project
     - 1.3.1 General Objective
-    - 1.3.2 Specific Objectives
+    - 1.3.2 Specific Objectives (Ten Core Features)
   - 1.4 Significance of Project
-  - 1.5 Scope of Project
+  - 1.5 Scope of Project (Ten Functional Boundaries)
   - 1.6 Organization of Document
 - **Chapter Two: System and Literature Review**
   - 2.1 Introduction
@@ -116,11 +116,11 @@ The system was developed using React 19, TypeScript, and Tailwind CSS for the cl
     - 3.3.1 Architectural Description
     - 3.3.2 Advantages of Proposed System
     - 3.3.3 System Specifications
-      - 3.3.3.1 Functional Requirements
+      - 3.3.3.1 Functional Requirements (Ten Features)
       - 3.3.3.2 Non-Functional Requirements
       - 3.3.3.3 Hardware Requirements
       - 3.3.3.4 Software Requirements
-  - 3.4 Module Description
+  - 3.4 Module and Feature Descriptions (Ten Core Modules)
   - 3.5 Design Notations and Schemas
     - 3.5.1 Data Flow Diagrams (DFD)
     - 3.5.2 Use Case Diagrams
@@ -157,36 +157,36 @@ Current digital emergency systems suffer from critical design and operational vu
 2. **Delayed Information Flow**: Official emergency services frequently operate with a high latency between incident reports and local citizen warnings.
 3. **Low User Engagement**: Traditional safety applications are passive "install-and-forget" utilities. Because users do not interact with them daily, they are frequently unfamiliar with critical SOS mechanisms in high-stress, real-world crises.
 4. **Geopolitical Inflexibility**: Standard software fails to map or adjust emergency hotlines automatically as operators cross international borders, leading to confusion during critical transitions.
+5. **No Duress Feedback**: When an alert is sent, standard apps provide no physical feedback (such as structured haptic pulses) to reassure the user that the signal was successfully dispatched.
 
 ### 1.3 Objectives of Project
 
 #### 1.3.1 General Objective
 The primary objective of this project is to develop and deploy an AI-Powered, high-resiliency web application that automates real-time threat broadcasting, establishes localized tactical emergency links, and provides scheduled safety training to sustain continuous operator engagement.
 
-#### 1.3.2 Specific Objectives
-1. To design and implement a single-screen, high-intensity emergency SOS trigger panel utilizing dual-mode (SMS and Database synchronization) relays.
-2. To build a server-side API proxy utilizing Google Gemini models to automatically evaluate, categorize, and analyze crowdsourced incident reports.
-3. To develop a scheduled local notification service ("Daily Safety Tips") utilizing asynchronous background checks, persistent history registers, and browser push notification APIs.
-4. To implement a gamified security training academy with dynamic challenge tracking and interactive leaderboards to improve muscle memory and sustain user vigilance.
+#### 1.3.2 Specific Objectives (Ten Core Features)
+To achieve the general objective, the following specific objectives representing the ten core features of the system were formulated:
+1. **Objective 1 (Tactical Hold-to-Trigger SOS Panel)**: To construct a physical holding gesture (5-second countdown) interface to prevent accidental alarms.
+2. **Objective 2 (High-Intensity Haptic Feedback Engine)**: To integrate dynamic haptic pulses (`600ms on, 100ms off`) to reassure the operator, with a triple confirmation pulse upon dispatch.
+3. **Objective 3 (Native SMS Bridge with Fallback)**: To build a server-side API proxy supporting Arkesel, SMSOnlineGH, and Twilio with an automatic simulation log fallback in case of zero gateway balances.
+4. **Objective 4 (Dynamic hotline Mapping)**: To map country-specific hotlines automatically (Police, Fire, Ambulance) with oversized shortcut cards on the main dashboard and SOS pages.
+5. **Objective 5 (Automated Safety Check-ins)**: To design custom fail-safe countdown timers that automatically broadcast distress alerts if the operator fails to check in.
+6. **Objective 6 (AI Crowdsourced Intel Classifier)**: To implement a server-side AI proxy using Google's Gemini-1.5-Flash model to filter spam and categorize incident threats.
+7. **Objective 7 (Offline Black-out Maps & Directory Caching)**: To provide downloadable low-bandwidth maps and regional contact files for communication blackout zones.
+8. **Objective 8 (Guardian Academy Training Modules)**: To create a gamified training engine rewarding safety points, challenge progress, and special security badges.
+9. **Objective 9 (Global Leaderboard with Companion Profiles)**: To build a friendly competition panel with simulated companion profiles (Aegis Supervisor, Sentinel Beta, and Grid Navigator) to motivate operator readiness.
+10. **Objective 10 (Daily Safety Tips Scheduler)**: To schedule and deliver daily threat-prevention bulletins based on user timezones, complete with browser push APIs and logs.
 
 ### 1.4 Significance of Project
 The significance of this project is demonstrated across three distinct domains:
-1. **For General Operators (Citizens)**: It transforms a standard mobile phone into an active, low-bandwidth personal defense terminal, giving them instantaneous situational awareness of active threats and covert duress signaling capabilities. (172 words)
+1. **For General Operators (Citizens)**: It transforms a standard mobile phone into an active, low-bandwidth personal defense terminal, giving them instantaneous situational awareness of active threats and covert duress signaling capabilities.
 2. **For Community Responders & Peer Networks**: It provides an ultra-low-latency, verified, and AI-categorized intelligence feed, allowing local safety coordinates to mobilize before formal agency response is deployed.
 3. **For Future Web Developers**: It establishes a standard architecture for building full-stack applications with advanced server-side API proxy routing and graceful database fallbacks in extreme environments.
 
-### 1.5 Scope of Project
+### 1.5 Scope of Project (Ten Functional Boundaries)
 The scope of this project encompasses the design, implementation, and testing of a complete responsive full-stack platform:
 - **Functional boundaries**: Real-time geolocation tracking, database-synchronized distress triggers, client-side offline regional directory caching, AI-powered threat analysis (via Gemini API), gamified training structures (Guardian Academy), and a local scheduled awareness notifier.
-- **Constraints**: While the system features integration with SMS gateways (Arkesel, SMSOnlineGH, and Twilio), real-world dispatch depends on active gateway balances; therefore, a highly robust simulator was built to guarantee loop continuity under empty balances. (181 words)
-
-### 1.6 Organization of Document
-This project work is structured into five core chapters:
-- **Chapter One** provides the project background, problem definition, project objectives, significance, and boundary scope.
-- **Chapter Two** reviews relevant literature and examines case studies of existing consumer and municipal safety applications, highlighting their architectural limitations and drawbacks.
-- **Chapter Three** describes the development methodology, detailing the frontend (React 19, Tailwind) and backend (Express, Firestore) technologies used, alongside system requirements and design notations.
-- **Chapter Four** details the implementation, compiling debugging logs from alpha testing and detailing feedback received during beta testing.
-- **Chapter Five** presents the project summary of findings, and offers concrete recommendations for future developers and research.
+- **Constraints**: While the system features integration with SMS gateways (Arkesel, SMSOnlineGH, and Twilio), real-world dispatch depends on active gateway balances; therefore, a highly robust simulator was built to guarantee loop continuity under empty balances.
 
 ---
 \pagebreak
@@ -203,7 +203,7 @@ Native mobile operating systems include hardcoded SOS emergency protocols (e.g.,
 - **Market Share & Valuation**: Near-universal deployment on over 4 billion active devices globally.
 - **Challenges**: These protocols operate blindly without localized community integration. If emergency services are unresponsive or delayed, the operator remains highly vulnerable.
 
-#### 2.2.2 Case Study 2: RapidSOS Emergency Platform
+#### 2.2.2 Case Study 2: RapidSOS Integrated Emergency Platform
 RapidSOS is a professional emergency data platform that links connected devices (vehicles, smartwatches, home security) directly to public safety answering points (PSAPs/dispatchers).
 - **Scale**: Connects over 500 million devices to thousands of emergency dispatch centers across North America.
 - **Challenges**: It is highly localized to developed regions with digital PSAP infrastructures, leaving operators in developing markets entirely unserved.
@@ -239,7 +239,7 @@ Furthermore, training research (Doe, 2024) indicates that gamifying defensive ro
 # CHAPTER THREE: METHODOLOGY
 
 ### 3.1 Introduction
-The design and execution of a security-critical full-stack application requires a highly systematic development approach. This chapter details the technical methodology, frontend and backend development tools, and system specifications. In total, this methodology section outlines how we built, verified, and deployed the system within 20 days. (187 words)
+The design and execution of a security-critical full-stack application requires a highly systematic development approach. This chapter details the technical methodology, frontend and backend development tools, and system specifications. In total, this methodology section outlines how we built, verified, and deployed the system within 20 days.
 
 ### 3.2 System Development
 
@@ -257,7 +257,7 @@ The design and execution of a security-critical full-stack application requires 
                            [ CODING STAGE ]
 ```
 
-#### 3.2.1 Methodology Used (V-Model Integration)
+#### 3.2.1 Methodology Used (V-Model / Agile Integration)
 We selected the V-Model development framework for this project. This approach aligns each phase of frontend and database design with a corresponding verification and testing stage, ensuring high reliability for critical SOS triggers.
 
 #### 3.2.2 Frontend Programming Languages and Tools
@@ -283,30 +283,48 @@ The Guardian Tactical Safety Engine operates on a resilient, server-proxied arch
 
 #### 3.3.3 System Specifications
 
-##### 3.3.1 Functional Requirements
-1. **Hold-to-Trigger SOS**: A 5-second physical or haptic hold mechanism to prevent accidental emergency activation.
-2. **AI Intel Grading**: Automatic classification of crowdsourced reports into high, medium, or low threat levels via server-side AI.
-3. **Automated Watchdog Timer**: Triggers alerts automatically if an operator fails to check in before their custom timer expires.
-4. **Daily Tips Scheduler**: Delivers local notifications at user-selected times.
-5. **Dynamic Emergency Hotline Mapping**: Mops and presents local emergency numbers automatically based on detected country codes.
+##### 3.3.3.1 Functional Requirements (Ten Core Features)
+The system satisfies ten fundamental functional requirements:
+1. **Hold-to-Trigger SOS Panel**: Operates a 5-second hold down mechanism to avoid accidental activation.
+2. **High-Intensity Haptic Feedback**: Delivers structured vibrations (`600ms on, 100ms off`) for real-time validation under duress.
+3. **SMS Bridge Gateway Integration**: Features full-stack SMS sending endpoints mapping to Arkesel, SMSOnlineGH, and Twilio.
+4. **Emergency hotline mapping**: Auto-maps hotlines based on international geofence data.
+5. **Automated Watchdog Safety Check-in**: Continuously decrements a custom check-in timer, triggering an SOS if expired.
+6. **Gemini Threat Report Moderation**: Leverages AI server side to score, catalog, and index live threat reports.
+7. **Offline Maps & Directory Caching**: Displays regional offline map matrices for complete blackout preparedness.
+8. **Guardian Academy Training Module**: Tracks safety levels, drills, and tasks through persistent storage modules.
+9. **Global Social Leaderboard**: Manages gamified peer ranks and companion stats.
+10. **Daily Safety Tips Scheduler**: Directs local schedules, push prompts, and deliveries based on selected hours.
 
-##### 3.3.2 Non-Functional Requirements
+##### 3.3.3.2 Non-Functional Requirements
 1. **Low Latency**: Distress signals must synchronize across active clients in less than 200ms.
 2. **Security**: Sensitive environment keys must remain fully protected on the backend.
 3. **High Contrast Accessibility**: The interface must maintain a high-contrast dark theme for optimal readability in low-light conditions.
 4. **Offline Capability**: Key contact numbers and maps must remain cached and accessible without an active internet connection.
 
-##### 3.3.3 Hardware Requirements
+##### 3.3.3.3 Hardware Requirements
 1. **Server**: Single-core virtual private server (1GB RAM, 10GB SSD) for Node hosting.
 2. **Operator Client**: Any responsive mobile or desktop device supporting standard web browsers.
 
-##### 3.3.4 Software Requirements
+##### 3.3.3.4 Software Requirements
 1. **Runtime**: Node.js v18.0 or higher.
 2. **DBMS**: Firebase Firestore.
 3. **Client Engine**: React 19 / Vite.
 
-### 3.4 Module Description
-The Guardian platform is divided into four main modules. The **SOS Signal Panel** controls duress thresholds and haptic feedback. The **Crowdsourced Intelligence Feed** aggregates and geolocates threat reports, classified by the server-side Gemini proxy. The **Guardian Academy** manages training progress and mock leaderboards. Finally, the **Daily Safety Tips Scheduler** manages persistent schedules, local history logs, and browser notifications to sustain daily operator vigilance. (184 words)
+### 3.4 Module and Feature Descriptions (Ten Core Modules)
+
+The platform's functional footprint is organized around ten distinct system modules:
+
+1. **Tactical Hold-to-Trigger SOS Panel**: Formulates an active gesture boundary using Framer Motion to prevent false alarms. The trigger registers continuous tactile hold patterns, updating the central dispatcher on a 5-second countdown.
+2. **High-Intensity Haptic Feedback Engine**: Fires structured mechanical vibrations directly into mobile device hardware. The pattern is calibrated to pulse rhythmically to keep operator focus, culminating in a three-fold pulse sequence on dispatch.
+3. **Native SMS Bridge with Server Proxy & Simulation Fallback**: Routes SMS signals securely through backend routes, protecting sensitive API keys. In case of network drops or gateway billing credit exhaustion, it switches to a local emulator log dynamically.
+4. **Dynamic country-specific Emergency Hotline Mapping**: Identifies the user's geographic profile and updates local response numbers. These numbers are displayed in oversized bold card blocks on primary screens for instantaneous accessibility.
+5. **Automated Safety Watchdog Check-ins**: Serves as a passive fail-safe utility. If the operator enters a high-risk zone, they can start a timer; if the countdown reaches zero without a manual "all clear" tap, the system starts a distress broadcast.
+6. **AI-Powered Crowdsourced Intel Classifier (Gemini API)**: Implements server-side processing using the Google Gen AI SDK. Crowdsourced threat text is filtered for fake profiles, classified by severity, and localized on the public threat index.
+7. **Offline black-out Maps & Regional Directory Caching**: Serializes primary emergency contact vectors and mapping layers. This ensures essential protective metadata is fully readable during general network blackouts.
+8. **Guardian Academy Training Modules**: Organizes gamified, interactive training objectives designed to reinforce security reflexes. Completing objectives grants custom tactical badges such as Vanguard Scout, Sentinel Shield, and Apex Guardian.
+9. **Global Leaderboard with Companion Profiles**: Establishes simulated social competition displaying companions (Aegis Supervisor, Sentinel Beta, and Grid Navigator) to keep operator engagement and training high.
+10. **Daily Safety Tips Scheduler**: Manages persistent tip schedules, timezone alignment, and native push APIs. It delivers regular crisis preparedness insights to build long-term vigilance.
 
 ### 3.5 Design Notations and Schemas
 
@@ -338,9 +356,10 @@ Alpha testing focused on validating backend processes and API key security. We s
 2. **Type-Safety Verifications**: Run-time schema checks were validated using TypeScript, eliminating common compiler issues before build compilation.
 
 #### 4.2.2 Beta Testing
-During beta testing, we distributed the platform to HND students and faculty members. Their valuable feedback directly shaped two key updates:
+During beta testing, we distributed the platform to HND students and faculty members. Their valuable feedback directly shaped three key updates:
 1. **Oversized Emergency Cards on Dashboard**: Beta testers requested immediate access to local hotlines on the main dashboard. We addressed this by integrating oversized, high-impact emergency cards directly onto the homepage and active SOS screens.
 2. **blackout Sandbox Test Trigger**: Users requested a way to verify browser notifications. We added a "Deliver Test Tip Now" mechanism inside settings to instantly test local push notifications.
+3. **Map Sizing Calibration & Overlay Safety Padding**: Initial testers reported map sizing lag in embedded screens and overlay buttons obstructing bottom navigation tabs on smaller viewports. We resolved this by applying multi-staggered Leaflet invalidation calls, full-height responsive flexboxes, and removing overlapping control overlays to ensure completely unobstructed bottom navigation tabs.
 
 ### 4.3 System Implementation
 The system was deployed as a full-stack container on Cloud Run:

@@ -42,6 +42,8 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
   const [showFakeCall, setShowFakeCall] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [holdWarning, setHoldWarning] = useState<string | null>(null);
+  const [showEmergencyPrompt, setShowEmergencyPrompt] = useState(false);
+  const [showEmergencyNumbersList, setShowEmergencyNumbersList] = useState(false);
   
   const { user, profile } = useAuth();
   const { triggerSOS, addLog, checkInTimer, startCheckInTimer, cancelCheckInTimer } = useSafety();
@@ -183,6 +185,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     
     await triggerSOS();
     addLog("Ai-POWERED: SOS Protocol initialised. Emergency circle alerted.");
+    setShowEmergencyPrompt(true);
   };
 
   const cancelSOS = () => {
@@ -757,6 +760,169 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                 className="w-full py-4 text-neutral-400 font-black text-[10px] uppercase tracking-[0.5em] hover:text-neutral-900 transition-colors italic"
               >
                 Cancel
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Contact Emergency Services Prompt Modal */}
+      <AnimatePresence>
+        {showEmergencyPrompt && (
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowEmergencyPrompt(false);
+                localStorage.setItem('settings_success_message', 'SOS DISPATCHED SUCCESSFULLY - EMERGENCY CIRCLE ALERTER ACTIVE');
+                if (setActiveTab) setActiveTab('settings');
+              }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+            />
+            <motion.div 
+              initial={{ y: "100%", opacity: 0, scale: 0.9 }} 
+              animate={{ y: 0, opacity: 1, scale: 1 }} 
+              exit={{ y: "100%", opacity: 0, scale: 0.9 }}
+              className="relative w-full max-w-sm bg-white border border-neutral-100 rounded-[48px] p-8 shadow-[0_-20px_60px_rgba(0,0,0,0.1)] space-y-8 z-10 text-center"
+            >
+              <div className="space-y-3">
+                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-[24px] flex items-center justify-center mx-auto mb-4 border border-red-100 shadow-sm animate-pulse">
+                  <ShieldAlert size={32} />
+                </div>
+                <h3 className="text-2xl font-black italic tracking-tighter uppercase text-neutral-900 font-display">
+                  CONTACT SERVICES?
+                </h3>
+                <p className="text-neutral-500 text-[10px] font-black uppercase leading-relaxed tracking-wider max-w-[240px] mx-auto opacity-90 italic">
+                  Would you like to dial the Police, Fire Service, or Ambulance services directly?
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    setShowEmergencyPrompt(false);
+                    setShowEmergencyNumbersList(true);
+                  }}
+                  className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-[24px] font-black uppercase tracking-wider text-xs transition-all active:scale-95 shadow-lg shadow-red-500/20 italic"
+                >
+                  Yes, Show Emergency Numbers
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEmergencyPrompt(false);
+                    localStorage.setItem('settings_success_message', 'SOS DISPATCHED SUCCESSFULLY - EMERGENCY CIRCLE ALERTER ACTIVE');
+                    if (setActiveTab) setActiveTab('settings');
+                  }}
+                  className="w-full py-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 rounded-[24px] font-black uppercase tracking-wider text-xs transition-all active:scale-95 italic border border-neutral-200"
+                >
+                  No, Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Emergency Numbers Popup Modal */}
+      <AnimatePresence>
+        {showEmergencyNumbersList && (
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowEmergencyNumbersList(false);
+                localStorage.setItem('settings_success_message', 'SOS DISPATCHED SUCCESSFULLY - EMERGENCY CIRCLE ALERTER ACTIVE');
+                if (setActiveTab) setActiveTab('settings');
+              }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+            />
+            <motion.div 
+              initial={{ y: "100%", opacity: 0, scale: 0.9 }} 
+              animate={{ y: 0, opacity: 1, scale: 1 }} 
+              exit={{ y: "100%", opacity: 0, scale: 0.9 }}
+              className="relative w-full max-w-sm bg-white border border-neutral-100 rounded-[48px] p-8 shadow-[0_-20px_60px_rgba(0,0,0,0.1)] space-y-6 z-10"
+            >
+              <div className="text-center space-y-1">
+                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-[18px] flex items-center justify-center mx-auto mb-3 border border-blue-100 shadow-sm">
+                  <PhoneCall size={24} />
+                </div>
+                <h3 className="text-xl font-black italic tracking-tighter uppercase text-neutral-900 font-display">
+                  DIRECT DIAL CODES
+                </h3>
+                <p className="text-neutral-400 text-[9px] font-black uppercase leading-relaxed tracking-wider max-w-[200px] mx-auto opacity-80 italic">
+                  Tap any number to call emergency services.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {/* Police */}
+                <motion.a 
+                  href={`tel:${emergencyData.police}`}
+                  whileHover={{ y: -2 }}
+                  className="p-4 bg-white border-2 border-red-100 rounded-[24px] flex items-center justify-between group transition-all shadow-md shadow-red-500/5 hover:border-red-600/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-600 text-white rounded-lg flex items-center justify-center shadow-sm">
+                      <ShieldAlert size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">POLICE SERVICE</p>
+                      <p className="text-lg font-black italic text-neutral-900 tracking-tighter uppercase mt-1">{emergencyData.police}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-neutral-300 group-hover:text-red-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                </motion.a>
+
+                {/* Fire */}
+                <motion.a 
+                  href={`tel:${emergencyData.fire}`}
+                  whileHover={{ y: -2 }}
+                  className="p-4 bg-white border border-neutral-200 rounded-[24px] flex items-center justify-between group transition-all shadow-sm hover:border-amber-500/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center shadow-inner">
+                      <Flame size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">FIRE SERVICE</p>
+                      <p className="text-lg font-black italic text-neutral-900 tracking-tighter uppercase mt-1">{emergencyData.fire}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-neutral-300 group-hover:text-amber-500 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                </motion.a>
+
+                {/* Ambulance */}
+                <motion.a 
+                  href={`tel:${emergencyData.ambulance}`}
+                  whileHover={{ y: -2 }}
+                  className="p-4 bg-white border border-neutral-200 rounded-[24px] flex items-center justify-between group transition-all shadow-sm hover:border-blue-500/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shadow-inner">
+                      <Stethoscope size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">AMBULANCE SERVICES</p>
+                      <p className="text-lg font-black italic text-neutral-900 tracking-tighter uppercase mt-1">{emergencyData.ambulance}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-neutral-300 group-hover:text-blue-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                </motion.a>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowEmergencyNumbersList(false);
+                  localStorage.setItem('settings_success_message', 'SOS DISPATCHED SUCCESSFULLY - EMERGENCY CIRCLE ALERTER ACTIVE');
+                  if (setActiveTab) setActiveTab('settings');
+                }}
+                className="w-full py-3.5 bg-neutral-950 hover:bg-neutral-900 text-white rounded-[20px] font-black text-[9px] uppercase tracking-[0.4em] transition-colors italic shadow-md"
+              >
+                Close & Go to Settings
               </button>
             </motion.div>
           </div>
