@@ -522,57 +522,60 @@ async function startServer() {
 
         // Trigger real delivery in the background (fire-and-forget)
         (async () => {
-          let sentReal = false;
-          if (transporter) {
+          // Resolve phone number upfront so we can dispatch instantly
+          let resolvedPhone: string | null = null;
+          if (req.body.phoneNumber) {
+            resolvedPhone = req.body.phoneNumber;
+          } else {
             try {
-              await transporter.sendMail({
-                from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
-                to: emailClean,
-                subject: mailSubject,
-                html: mailHtml
-              });
-              sentReal = true;
-              console.log(`[SERVER_AUTH_BG] Verification OTP email sent via SMTP to ${emailClean}`);
-            } catch (smtpErr: any) {
-              console.error("[SERVER_AUTH_BG_SMTP_ERR] Failed to send real SMTP email, falling back to SMS:", smtpErr.message);
+              const userProfile = await fetchUserByEmailFromRest(emailClean);
+              if (userProfile && userProfile.phoneNumber) {
+                resolvedPhone = userProfile.phoneNumber;
+                console.log(`[SERVER_AUTH_BG] Resolved phone number from user profile: ${resolvedPhone}`);
+              }
+            } catch (profileErr: any) {
+              console.warn(`[SERVER_AUTH_BG_PHONE_LOOKUP_WARN] Failed fetching phone number from Firestore:`, profileErr.message);
             }
           }
 
-          if (!sentReal) {
-            // Attempt to fetch phone number from req.body or Firestore REST fallback
-            let resolvedPhone: string | null = null;
-            if (req.body.phoneNumber) {
-              resolvedPhone = req.body.phoneNumber;
-            } else {
-              try {
-                const userProfile = await fetchUserByEmailFromRest(emailClean);
-                if (userProfile && userProfile.phoneNumber) {
-                  resolvedPhone = userProfile.phoneNumber;
-                  console.log(`[SERVER_AUTH_BG] Resolved phone number from user profile: ${resolvedPhone}`);
-                }
-              } catch (profileErr: any) {
-                console.warn(`[SERVER_AUTH_BG_PHONE_LOOKUP_WARN] Failed fetching phone number from Firestore:`, profileErr.message);
-              }
-            }
+          const dispatchPromises: Promise<any>[] = [];
 
-            // If phone number is found, attempt to send the OTP via SMS
-            if (resolvedPhone) {
+          // 1. Dispatch Email if configured
+          if (transporter) {
+            dispatchPromises.push((async () => {
               try {
-                console.log(`[SERVER_AUTH_BG] SMTP inactive/failed. Dispatching fallback SMS OTP to ${resolvedPhone}...`);
+                await transporter.sendMail({
+                  from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
+                  to: emailClean,
+                  subject: mailSubject,
+                  html: mailHtml
+                });
+                console.log(`[SERVER_AUTH_BG] Verification OTP email sent via SMTP to ${emailClean}`);
+              } catch (smtpErr: any) {
+                console.error("[SERVER_AUTH_BG_SMTP_ERR] Failed to send real SMTP email:", smtpErr.message);
+              }
+            })());
+          }
+
+          // 2. Dispatch SMS in parallel if phone number exists and SMS is configured
+          if (resolvedPhone && hasSms) {
+            dispatchPromises.push((async () => {
+              try {
+                console.log(`[SERVER_AUTH_BG] Dispatching ultra-fast SMS OTP to ${resolvedPhone}...`);
                 const smsMsg = `Your AI-POWERED HUMAN SAFETY ALERT verification OTP is: ${otp}. Valid for 10 minutes.`;
                 const smsResult = await sendTacticalSms([resolvedPhone], smsMsg, "SafetyAlert");
                 if (smsResult.success) {
-                  console.log(`[SERVER_AUTH_BG] Fallback OTP SMS sent successfully via ${smsResult.relayUsed} to ${resolvedPhone}`);
+                  console.log(`[SERVER_AUTH_BG] Fast-track OTP SMS sent successfully via ${smsResult.relayUsed} to ${resolvedPhone}`);
                 } else {
-                  console.warn(`[SERVER_AUTH_BG] Fallback OTP SMS dispatch failed:`, smsResult.error?.message || "Unknown gateway error");
+                  console.warn(`[SERVER_AUTH_BG] Fast-track OTP SMS dispatch failed:`, smsResult.error?.message || "Unknown gateway error");
                 }
               } catch (smsErr: any) {
-                console.error(`[SERVER_AUTH_BG_SMS_ERR] Failed sending fallback OTP SMS:`, smsErr.message);
+                console.error(`[SERVER_AUTH_BG_SMS_ERR] Failed sending fast-track OTP SMS:`, smsErr.message);
               }
-            } else {
-              console.warn(`[SERVER_AUTH_BG] Fallback SMS failed: No phone number resolved for ${emailClean}`);
-            }
+            })());
           }
+
+          await Promise.all(dispatchPromises);
         })().catch((bgErr: any) => {
           console.error("[SERVER_AUTH_BG_THREAD_ERR] Background thread error:", bgErr);
         });
