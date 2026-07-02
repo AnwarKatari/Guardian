@@ -26,16 +26,12 @@ const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatab
   ? firebaseConfig.firestoreDatabaseId 
   : '(default)';
 
-const isIframe = typeof window !== 'undefined' && window !== window.parent;
-
-let cacheConfig;
-if (isIframe) {
-  // Inside an iframe/sandbox, multiple tab manager often fails due to storage/locking restrictions.
-  // Using persistentSingleTabManager is much safer and avoids "Unexpected state" assertion errors.
-  cacheConfig = persistentLocalCache({ tabManager: persistentSingleTabManager({}) });
-} else {
-  cacheConfig = persistentLocalCache({ tabManager: persistentMultipleTabManager() });
-}
+// Using persistentSingleTabManager with forceOwnership: true is the absolute safest approach.
+// This completely avoids any IndexedDB locking/assertion failures (e.g. "Unexpected state")
+// when pages are reloaded or opened in multiple tabs on custom hosting (like Railway).
+const cacheConfig = persistentLocalCache({ 
+  tabManager: persistentSingleTabManager({ forceOwnership: true }) 
+});
 
 let dbInstance;
 try {
@@ -43,10 +39,10 @@ try {
     localCache: cacheConfig
   }, dbId);
 } catch (error) {
-  console.warn("Failed to initialize Firestore with primary cache config, falling back to persistentSingleTabManager...", error);
+  console.warn("Failed to initialize Firestore with primary cache config, falling back...", error);
   try {
     dbInstance = initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) })
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: true }) })
     }, dbId);
   } catch (error2) {
     console.error("Failed to initialize Firestore with localCache, initializing default...", error2);

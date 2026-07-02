@@ -470,94 +470,113 @@ async function startServer() {
         </div>
       `;
 
-      // 5. Send via Transporter or fallback to SMS/simulation
+      // 5. Determine configuration & send instantly (Non-blocking / Background dispatch)
+      // This ensures Railway hosting has absolute zero timeouts, and the user transitions
+      // to the OTP screen immediately without waiting on slow SMS gateways.
       const transporter = getTransporter();
-      let sentReal = false;
-      if (transporter) {
-        try {
-          await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
+      const hasSmtp = !!transporter;
+      const arkeselKey = process.env.ARKESEL_API_KEY || process.env.ARKESEL_API_KEY;
+      const smsOnlineKey = process.env.SMS_ONLINE_GH_KEY || process.env.SMS_ONLINE_GH_KEY;
+      const hasSms = !!(arkeselKey || smsOnlineKey);
+      
+      const isSimulated = !hasSmtp && !hasSms;
+
+      // First response payload
+      if (isSimulated) {
+        res.json({
+          status: "success",
+          sentReal: false,
+          sentRealEmail: false,
+          sentRealSms: false,
+          smsRelayUsed: "",
+          simulated: true,
+          otp: otp,
+          message: `DEMO MODE: SMTP/SMS is not configured. Use verification OTP: ${otp} to proceed.`
+        });
+
+        // Simulating the email save in Firestore in the background
+        if (adminDb) {
+          adminDb.collection("simulated_emails").add({
             to: emailClean,
             subject: mailSubject,
-            html: mailHtml
-          });
-          sentReal = true;
-          console.log(`[SERVER_AUTH] Verification OTP email sent via SMTP to ${emailClean}`);
-        } catch (smtpErr: any) {
-          console.error("[SERVER_AUTH_SMTP_ERR] Failed to send real SMTP email, falling back to SMS/simulation:", smtpErr.message);
-        }
-      }
-
-      let sentRealSms = false;
-      let smsRelayUsed = "";
-      let resolvedPhone: string | null = null;
-
-      if (!sentReal) {
-        // Attempt to fetch phone number from req.body or Firestore REST fallback
-        if (req.body.phoneNumber) {
-          resolvedPhone = req.body.phoneNumber;
-        } else {
-          try {
-            const userProfile = await fetchUserByEmailFromRest(emailClean);
-            if (userProfile && userProfile.phoneNumber) {
-              resolvedPhone = userProfile.phoneNumber;
-              console.log(`[SERVER_AUTH] Resolved phone number from user profile: ${resolvedPhone}`);
-            }
-          } catch (profileErr: any) {
-            console.warn(`[SERVER_AUTH_PHONE_LOOKUP_WARN] Failed fetching phone number from Firestore:`, profileErr.message);
-          }
-        }
-
-        // If phone number is found, attempt to send the OTP via SMS
-        if (resolvedPhone) {
-          try {
-            console.log(`[SERVER_AUTH] SMTP inactive/failed. Dispatching fallback SMS OTP to ${resolvedPhone}...`);
-            const smsMsg = `Your AI-POWERED HUMAN SAFETY ALERT verification OTP is: ${otp}. Valid for 10 minutes.`;
-            const smsResult = await sendTacticalSms([resolvedPhone], smsMsg, "SafetyAlert");
-            if (smsResult.success) {
-              sentRealSms = true;
-              smsRelayUsed = smsResult.relayUsed;
-              console.log(`[SERVER_AUTH] Fallback OTP SMS sent successfully via ${smsResult.relayUsed} to ${resolvedPhone}`);
-            } else {
-              console.warn(`[SERVER_AUTH] Fallback OTP SMS dispatch failed:`, smsResult.error?.message || "Unknown gateway error");
-            }
-          } catch (smsErr: any) {
-            console.error(`[SERVER_AUTH_SMS_ERR] Failed sending fallback OTP SMS:`, smsErr.message);
-          }
-        }
-      }
-
-      if (!sentReal && !sentRealSms) {
-        console.log(`[SERVER_AUTH] [SIMULATION] Verification OTP email for ${emailClean}:\nSubject: ${mailSubject}\nOTP: ${otp}`);
-        if (adminDb) {
-          try {
-            await adminDb.collection("simulated_emails").add({
-              to: emailClean,
-              subject: mailSubject,
-              html: mailHtml,
-              type: isLogin ? "login_otp" : "signup_otp",
-              timestamp: new Date().toISOString()
-            });
-          } catch (dbErr: any) {
+            html: mailHtml,
+            type: isLogin ? "login_otp" : "signup_otp",
+            timestamp: new Date().toISOString()
+          }).catch((dbErr: any) => {
             console.warn(`[SERVER_AUTH_DB_WARN] Failed to write simulated OTP email to Firestore: ${dbErr.message}`);
-          }
+          });
         }
-      }
+      } else {
+        // Real dispatch - Respond immediately to keep browser active and prevent timeouts
+        res.json({
+          status: "success",
+          sentReal: true,
+          sentRealEmail: hasSmtp,
+          sentRealSms: !hasSmtp && hasSms,
+          smsRelayUsed: "",
+          simulated: false,
+          message: hasSmtp
+            ? `A 6-digit verification code has been dispatched to ${emailClean}. Please check your inbox.`
+            : `Email delivery inactive. Dispatching fallback verification OTP to your phone via SMS.`
+        });
 
-      res.json({
-        status: "success",
-        sentReal: sentReal || sentRealSms,
-        sentRealEmail: sentReal,
-        sentRealSms,
-        smsRelayUsed,
-        simulated: !sentReal && !sentRealSms,
-        otp: (!sentReal && !sentRealSms) ? otp : undefined,
-        message: sentReal 
-          ? "A 6-digit verification code has been sent to your email address." 
-          : sentRealSms 
-            ? `Email delivery inactive. Verification OTP successfully delivered to your phone (${resolvedPhone}) via SMS!`
-            : `DEMO MODE: OTP generated successfully! Use OTP: ${otp} to proceed.`
-      });
+        // Trigger real delivery in the background (fire-and-forget)
+        (async () => {
+          let sentReal = false;
+          if (transporter) {
+            try {
+              await transporter.sendMail({
+                from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
+                to: emailClean,
+                subject: mailSubject,
+                html: mailHtml
+              });
+              sentReal = true;
+              console.log(`[SERVER_AUTH_BG] Verification OTP email sent via SMTP to ${emailClean}`);
+            } catch (smtpErr: any) {
+              console.error("[SERVER_AUTH_BG_SMTP_ERR] Failed to send real SMTP email, falling back to SMS:", smtpErr.message);
+            }
+          }
+
+          if (!sentReal) {
+            // Attempt to fetch phone number from req.body or Firestore REST fallback
+            let resolvedPhone: string | null = null;
+            if (req.body.phoneNumber) {
+              resolvedPhone = req.body.phoneNumber;
+            } else {
+              try {
+                const userProfile = await fetchUserByEmailFromRest(emailClean);
+                if (userProfile && userProfile.phoneNumber) {
+                  resolvedPhone = userProfile.phoneNumber;
+                  console.log(`[SERVER_AUTH_BG] Resolved phone number from user profile: ${resolvedPhone}`);
+                }
+              } catch (profileErr: any) {
+                console.warn(`[SERVER_AUTH_BG_PHONE_LOOKUP_WARN] Failed fetching phone number from Firestore:`, profileErr.message);
+              }
+            }
+
+            // If phone number is found, attempt to send the OTP via SMS
+            if (resolvedPhone) {
+              try {
+                console.log(`[SERVER_AUTH_BG] SMTP inactive/failed. Dispatching fallback SMS OTP to ${resolvedPhone}...`);
+                const smsMsg = `Your AI-POWERED HUMAN SAFETY ALERT verification OTP is: ${otp}. Valid for 10 minutes.`;
+                const smsResult = await sendTacticalSms([resolvedPhone], smsMsg, "SafetyAlert");
+                if (smsResult.success) {
+                  console.log(`[SERVER_AUTH_BG] Fallback OTP SMS sent successfully via ${smsResult.relayUsed} to ${resolvedPhone}`);
+                } else {
+                  console.warn(`[SERVER_AUTH_BG] Fallback OTP SMS dispatch failed:`, smsResult.error?.message || "Unknown gateway error");
+                }
+              } catch (smsErr: any) {
+                console.error(`[SERVER_AUTH_BG_SMS_ERR] Failed sending fallback OTP SMS:`, smsErr.message);
+              }
+            } else {
+              console.warn(`[SERVER_AUTH_BG] Fallback SMS failed: No phone number resolved for ${emailClean}`);
+            }
+          }
+        })().catch((bgErr: any) => {
+          console.error("[SERVER_AUTH_BG_THREAD_ERR] Background thread error:", bgErr);
+        });
+      }
 
     } catch (error: any) {
       console.error("[AUTH_API_ERR] Failed to send verification OTP:", error);

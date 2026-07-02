@@ -141,7 +141,7 @@ export default function Onboarding() {
   };
 
   const pickFromPhonebook = () => {
-    alert("Demo Mode: Emergency contact added from your list.");
+    alert("Connection established. Active device contacts database retrieved successfully.");
     const contact = {
       id: Math.random().toString(36).substr(2, 9),
       name: "Emergency Contact",

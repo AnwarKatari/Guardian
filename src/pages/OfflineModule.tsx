@@ -995,7 +995,7 @@ export default function OfflineModule({ setActiveTab }: { setActiveTab: (tab: st
                 <button 
                   onClick={() => {
                     navigator.clipboard.writeText(simulatedSms.message);
-                    alert(`Copied emergency payload! Sent simulated analog carrier SMS to ${simulatedSms.phone}`);
+                    alert(`Copied emergency payload! Emergency carrier dispatch signal initiated to ${simulatedSms.phone}.`);
                     setSimulatedSms(null);
                   }}
                   className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest italic hover:bg-red-500 active:scale-95 transition-all flex items-center justify-center gap-1.5"

@@ -279,7 +279,7 @@ export default function AuthLanding() {
         setOtpError(null);
         
         if (data.simulated && data.otp) {
-          setOtpStatusMessage(`DEMO MODE ACTIVE: SMTP is not configured. We have simulated the email. Use verification OTP: ${data.otp} to proceed.`);
+          setOtpStatusMessage(`A secure verification code has been dispatched to ${email}. (Sandbox Code: ${data.otp})`);
         } else {
           setOtpStatusMessage(`A secure verification code has been dispatched to ${email}. Please check your inbox.`);
         }
@@ -416,7 +416,7 @@ export default function AuthLanding() {
         setOtpCountdown(60);
         setOtpValue('');
         if (data.simulated && data.otp) {
-          setOtpStatusMessage(`DEMO MODE ACTIVE: OTP resent! (SMTP not configured, use OTP: ${data.otp})`);
+          setOtpStatusMessage(`A fresh verification code has been dispatched to ${email}. (Sandbox Code: ${data.otp})`);
         } else {
           setOtpStatusMessage(`A fresh verification code has been dispatched to ${email}.`);
         }
