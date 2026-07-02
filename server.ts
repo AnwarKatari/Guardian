@@ -227,6 +227,126 @@ async function saveSimulatedEmailToRest(to: string, subject: string, html: strin
   console.log(`[SIMULATED_EMAIL_LOG] To: ${to}\nSubject: ${subject}\nLink: ${resetLink}`);
 }
 
+// HELPER: Send Tactical SMS via Arkesel or SMSOnline GH
+async function sendTacticalSms(phoneNumbers: string[], message: string, senderName: string): Promise<{ success: boolean; relayUsed: string; error?: any }> {
+  const smsOnlineKey = process.env.SMS_ONLINE_GH_KEY || process.env.SMS_ONLINE_GH_KEY;
+  const arkeselKey = process.env.ARKESEL_API_KEY;
+
+  if (!phoneNumbers || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
+    return { success: false, relayUsed: "", error: new Error("No target units specified") };
+  }
+
+  const normalizeGH = (num: string) => {
+    let cleaned = num.replace(/\D/g, '');
+    if (cleaned.startsWith('0') && cleaned.length === 10) return `233${cleaned.substring(1)}`;
+    if (cleaned.length === 9) return `233${cleaned}`;
+    return cleaned;
+  };
+
+  const normalizedNumbers = phoneNumbers.map(normalizeGH).filter(n => n.length >= 10);
+  if (normalizedNumbers.length === 0) {
+    return { success: false, relayUsed: "", error: new Error("No valid phone numbers detected") };
+  }
+
+  const sanitizeSenderId = (name: string) => {
+    if (!name) return "SafetyAlert";
+    let formatted = name.trim().replace(/\s+/g, "");
+    formatted = formatted.replace(/[^a-zA-Z0-9]/g, "");
+    return formatted.substring(0, 11) || "SafetyAlert";
+  };
+
+  const tacticalSender = sanitizeSenderId(senderName);
+
+  if (!arkeselKey && !smsOnlineKey) {
+    console.log(`[TACTICAL_SMS_SIMULATION] No API keys detected. Simulation mode only.`);
+    return { success: false, relayUsed: "SIMULATION", error: new Error("No gateway keys found") };
+  }
+
+  let success = false;
+  let relayUsed = "";
+  let lastErrorDetails: any = null;
+
+  // 1. Arkesel
+  if (arkeselKey) {
+    try {
+      console.log(`[TACTICAL_SMS_ARKESEL] Attempting dispatch via V2 with sender: ${tacticalSender}`);
+      const response = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
+        sender: tacticalSender,
+        recipients: normalizedNumbers,
+        message: message
+      }, {
+        headers: { 'api-key': arkeselKey },
+        timeout: 12000
+      });
+
+      const resData = response.data;
+      if (resData && (resData.status === "success" || resData.code === "1000" || resData.code === 1000 || resData.code === 101)) {
+        success = true;
+        relayUsed = "ARKESEL_v2";
+        console.log(`[TACTICAL_SMS_SUCCESS] Arkesel v2 confirmed.`);
+      } else {
+        console.warn("[TACTICAL_SMS_WARN] Arkesel rejected request:", JSON.stringify(resData));
+        lastErrorDetails = resData;
+
+        if (tacticalSender !== "Arkesel") {
+          try {
+            console.log(`[TACTICAL_SMS_ARKESEL] Fallback with default sender 'Arkesel'...`);
+            const fbRes = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
+              sender: "Arkesel",
+              recipients: normalizedNumbers,
+              message: message
+            }, {
+              headers: { 'api-key': arkeselKey },
+              timeout: 10000
+            });
+            
+            if (fbRes.data && (fbRes.data.status === "success" || fbRes.data.code === 1000)) {
+              success = true;
+              relayUsed = "ARKESEL_v2_FALLBACK";
+              console.log(`[TACTICAL_SMS_SUCCESS] Arkesel fallback successful.`);
+            }
+          } catch (innerE) {
+             console.error("[TACTICAL_SMS_FAILED] Arkesel fallback also failed.");
+          }
+        }
+      }
+    } catch (e: any) {
+      lastErrorDetails = e.response?.data || { message: e.message };
+      console.error("[TACTICAL_SMS_ERR] Arkesel primary failed:", JSON.stringify(lastErrorDetails));
+    }
+  }
+
+  // 2. SMS Online GH
+  if (!success && smsOnlineKey) {
+    try {
+      console.log(`[TACTICAL_SMS_SMSONLINE] Attempting dispatch via SMS Online GH...`);
+      const response = await axios.post(`https://api.smsonlinegh.com/v4/message/sms/send`, {
+        text: message,
+        destinations: normalizedNumbers,
+        sender: tacticalSender.substring(0, 11)
+      }, {
+        headers: { 
+          'Authorization': `Bearer ${smsOnlineKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 12000
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        success = true;
+        relayUsed = "SMS_ONLINE_GH";
+        console.log(`[TACTICAL_SMS_SUCCESS] SMS Online GH dispatch confirmed.`);
+      }
+    } catch (e: any) {
+      const errData = e.response?.data || e.message;
+      console.error("[TACTICAL_SMS_ERR] SMS Online GH failed:", JSON.stringify(errData));
+      if (!lastErrorDetails) lastErrorDetails = errData;
+    }
+  }
+
+  return { success, relayUsed, error: success ? undefined : lastErrorDetails };
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -350,19 +470,64 @@ async function startServer() {
         </div>
       `;
 
-      // 5. Send via Transporter or fallback to simulation
+      // 5. Send via Transporter or fallback to SMS/simulation
       const transporter = getTransporter();
       let sentReal = false;
       if (transporter) {
-        await transporter.sendMail({
-          from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
-          to: emailClean,
-          subject: mailSubject,
-          html: mailHtml
-        });
-        sentReal = true;
-        console.log(`[SERVER_AUTH] Verification OTP email sent via SMTP to ${emailClean}`);
-      } else {
+        try {
+          await transporter.sendMail({
+            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
+            to: emailClean,
+            subject: mailSubject,
+            html: mailHtml
+          });
+          sentReal = true;
+          console.log(`[SERVER_AUTH] Verification OTP email sent via SMTP to ${emailClean}`);
+        } catch (smtpErr: any) {
+          console.error("[SERVER_AUTH_SMTP_ERR] Failed to send real SMTP email, falling back to SMS/simulation:", smtpErr.message);
+        }
+      }
+
+      let sentRealSms = false;
+      let smsRelayUsed = "";
+      let resolvedPhone: string | null = null;
+
+      if (!sentReal) {
+        // Attempt to fetch phone number from req.body or Firestore REST fallback
+        if (req.body.phoneNumber) {
+          resolvedPhone = req.body.phoneNumber;
+        } else {
+          try {
+            const userProfile = await fetchUserByEmailFromRest(emailClean);
+            if (userProfile && userProfile.phoneNumber) {
+              resolvedPhone = userProfile.phoneNumber;
+              console.log(`[SERVER_AUTH] Resolved phone number from user profile: ${resolvedPhone}`);
+            }
+          } catch (profileErr: any) {
+            console.warn(`[SERVER_AUTH_PHONE_LOOKUP_WARN] Failed fetching phone number from Firestore:`, profileErr.message);
+          }
+        }
+
+        // If phone number is found, attempt to send the OTP via SMS
+        if (resolvedPhone) {
+          try {
+            console.log(`[SERVER_AUTH] SMTP inactive/failed. Dispatching fallback SMS OTP to ${resolvedPhone}...`);
+            const smsMsg = `Your AI-POWERED HUMAN SAFETY ALERT verification OTP is: ${otp}. Valid for 10 minutes.`;
+            const smsResult = await sendTacticalSms([resolvedPhone], smsMsg, "SafetyAlert");
+            if (smsResult.success) {
+              sentRealSms = true;
+              smsRelayUsed = smsResult.relayUsed;
+              console.log(`[SERVER_AUTH] Fallback OTP SMS sent successfully via ${smsResult.relayUsed} to ${resolvedPhone}`);
+            } else {
+              console.warn(`[SERVER_AUTH] Fallback OTP SMS dispatch failed:`, smsResult.error?.message || "Unknown gateway error");
+            }
+          } catch (smsErr: any) {
+            console.error(`[SERVER_AUTH_SMS_ERR] Failed sending fallback OTP SMS:`, smsErr.message);
+          }
+        }
+      }
+
+      if (!sentReal && !sentRealSms) {
         console.log(`[SERVER_AUTH] [SIMULATION] Verification OTP email for ${emailClean}:\nSubject: ${mailSubject}\nOTP: ${otp}`);
         if (adminDb) {
           try {
@@ -381,12 +546,17 @@ async function startServer() {
 
       res.json({
         status: "success",
-        sentReal,
-        simulated: !sentReal,
-        otp: !sentReal ? otp : undefined,
+        sentReal: sentReal || sentRealSms,
+        sentRealEmail: sentReal,
+        sentRealSms,
+        smsRelayUsed,
+        simulated: !sentReal && !sentRealSms,
+        otp: (!sentReal && !sentRealSms) ? otp : undefined,
         message: sentReal 
           ? "A 6-digit verification code has been sent to your email address." 
-          : `DEMO MODE: Email OTP generated successfully! (SMTP not configured, OTP printed below for easy testing)`
+          : sentRealSms 
+            ? `Email delivery inactive. Verification OTP successfully delivered to your phone (${resolvedPhone}) via SMS!`
+            : `DEMO MODE: OTP generated successfully! Use OTP: ${otp} to proceed.`
       });
 
     } catch (error: any) {
@@ -646,15 +816,21 @@ async function startServer() {
       const transporter = getTransporter();
       let sentReal = false;
       if (transporter) {
-         await transporter.sendMail({
-          from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
-          to: emailClean,
-          subject: mailSubject,
-          html: mailHtml
-        });
-        sentReal = true;
-        console.log(`[SERVER_AUTH] Custom reset email sent via SMTP to ${emailClean}`);
-      } else {
+        try {
+          await transporter.sendMail({
+            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
+            to: emailClean,
+            subject: mailSubject,
+            html: mailHtml
+          });
+          sentReal = true;
+          console.log(`[SERVER_AUTH] Custom reset email sent via SMTP to ${emailClean}`);
+        } catch (smtpErr: any) {
+          console.error("[SERVER_AUTH_SMTP_ERR] Failed to send real SMTP custom reset email, falling back to simulation:", smtpErr.message);
+        }
+      }
+
+      if (!sentReal) {
         console.log(`[SERVER_AUTH] [SIMULATION] Custom reset email for ${emailClean}:\nSubject: ${mailSubject}\nLink: ${resetLink}`);
         // Save simulation log using our secure REST fallback helper
         await saveSimulatedEmailToRest(emailClean, mailSubject, mailHtml, resetLink);
@@ -790,15 +966,21 @@ async function startServer() {
       const transporter = getTransporter();
       let sentReal = false;
       if (transporter) {
-        await transporter.sendMail({
-          from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
-          to: emailClean,
-          subject: mailSubject,
-          html: mailHtml
-        });
-        sentReal = true;
-        console.log(`[SERVER_AUTH] ${type} notification email sent via SMTP to ${emailClean}`);
-      } else {
+        try {
+          await transporter.sendMail({
+            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
+            to: emailClean,
+            subject: mailSubject,
+            html: mailHtml
+          });
+          sentReal = true;
+          console.log(`[SERVER_AUTH] ${type} notification email sent via SMTP to ${emailClean}`);
+        } catch (smtpErr: any) {
+          console.error(`[SERVER_AUTH_SMTP_ERR] Failed to send real SMTP ${type} notification, falling back to simulation:`, smtpErr.message);
+        }
+      }
+
+      if (!sentReal) {
         console.log(`[SERVER_AUTH] [SIMULATION] ${type} email to ${emailClean}:\nSubject: ${mailSubject}`);
         if (adminDb) {
           try {
@@ -980,61 +1162,23 @@ async function startServer() {
   app.post("/api/sms/dispatch", async (req, res) => {
     const { phoneNumbers, message, senderName } = req.body;
     
-    // Available Keys
-    const smsOnlineKey = process.env.SMS_ONLINE_GH_KEY || SMS_KEY;
-    const arkeselKey = process.env.ARKESEL_API_KEY;
-
     if (!phoneNumbers || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
       return res.status(400).json({ status: "error", message: "No target units specified" });
     }
 
     console.log(`[TACTICAL_RELAY] Initializing dispatch for ${phoneNumbers.length} targets`);
-    
-    // Normalize numbers (handling international and local formats)
-    const normalizeGH = (num: string) => {
-      let cleaned = num.replace(/\D/g, '');
-      if (cleaned.startsWith('0') && cleaned.length === 10) return `233${cleaned.substring(1)}`;
-      if (cleaned.length === 9) return `233${cleaned}`;
-      // Arkesel and SMSOnlineGH prefer numbers without the '+' but with country code
-      return cleaned;
-    };
 
-    const normalizedNumbers = phoneNumbers.map(normalizeGH).filter(n => n.length >= 10);
-    console.log(`[TACTICAL_RELAY] Target units normalized: ${normalizedNumbers.join(", ")}`);
-    
-    // SENDER ID OPTIMIZATION:
-    // Alphanumeric Sender IDs in Ghana MUST be pre-registered (max 11 chars).
-    // The user requested: "shorten the name and if there is a space put - between them"
-    const sanitizeSenderId = (name: string) => {
-      if (!name) return "SafetyAlert";
-      
-      // Strict Alphanumeric is safer for many gateways
-      let formatted = name.trim().replace(/\s+/g, "");
-      
-      // Remove all non-alphanumeric (dashes can cause rejection if not pre-approved)
-      formatted = formatted.replace(/[^a-zA-Z0-9]/g, "");
-      
-      // Shorten to protocol maximum (11 chars)
-      const sanitized = formatted.substring(0, 11);
-      
-      return sanitized || "SafetyAlert";
-    };
+    const result = await sendTacticalSms(phoneNumbers, message, senderName);
 
-    const tacticalSender = sanitizeSenderId(senderName);
-    console.log(`[TACTICAL_RELAY] Tactical Sender ID: ${tacticalSender} (Original: ${senderName})`);
-
-    // VALIDATION: Recipients Check
-    if (normalizedNumbers.length === 0) {
-      return res.status(400).json({ 
-        status: "error", 
-        message: "No valid phone numbers detected. Use format: 024XXXXXXX or 23324XXXXXXX" 
+    if (result.success) {
+      return res.json({ 
+        status: "success", 
+        relay: result.relayUsed,
+        timestamp: new Date().toISOString()
       });
     }
 
-    // If no keys are provided, enter simulation mode
-    if (!arkeselKey && !smsOnlineKey) {
-      console.log(`[RELAY_SIMULATION] No API keys detected. Entering simulation mode.`);
-      await new Promise(resolve => setTimeout(resolve, 800));
+    if (result.relayUsed === "SIMULATION") {
       return res.json({
         status: "success",
         relay: "SIMULATION_MODE",
@@ -1044,111 +1188,14 @@ async function startServer() {
       });
     }
 
-    // DISPATCH CHAIN
-    let success = false;
-    let relayUsed = "";
-    let lastErrorDetails: any = null;
-
-    // 1. PRIMARY ARKESEL RELAY (V2)
-    if (arkeselKey) {
-      try {
-        console.log(`[RELAY_ARKESEL] Attempting dispatch via V2 with sender: ${tacticalSender}`);
-        
-        const response = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
-          sender: tacticalSender,
-          recipients: normalizedNumbers,
-          message: message
-        }, {
-          headers: { 'api-key': arkeselKey },
-          timeout: 12000
-        });
-
-        const resData = response.data;
-        // Arkesel V2 success codes: 1000, 101, or status 'success'
-        if (resData && (resData.status === "success" || resData.code === "1000" || resData.code === 1000 || resData.code === 101)) {
-          success = true;
-          relayUsed = "ARKESEL_v2";
-          console.log(`[RELAY_SUCCESS] Arkesel v2 confirmed.`);
-        } else {
-          console.warn("[RELAY_WARN] Arkesel rejected request:", JSON.stringify(resData));
-          lastErrorDetails = resData;
-          
-          // 2. FALLBACK ARKESEL: Attempt with default 'Arkesel' sender if custom failed
-          if (tacticalSender !== "Arkesel") {
-            try {
-              console.log(`[RELAY_ARKESEL] Fallback with default sender 'Arkesel'...`);
-              const fbRes = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
-                sender: "Arkesel",
-                recipients: normalizedNumbers,
-                message: message
-              }, {
-                headers: { 'api-key': arkeselKey },
-                timeout: 10000
-              });
-              
-              if (fbRes.data && (fbRes.data.status === "success" || fbRes.data.code === 1000)) {
-                success = true;
-                relayUsed = "ARKESEL_v2_FALLBACK";
-                console.log(`[RELAY_SUCCESS] Arkesel fallback successful.`);
-              }
-            } catch (innerE) {
-               console.error("[RELAY_FAILED] Arkesel fallback also failed.");
-            }
-          }
-        }
-      } catch (e: any) {
-        lastErrorDetails = e.response?.data || { message: e.message };
-        console.error("[RELAY_ERR] Arkesel primary failed:", JSON.stringify(lastErrorDetails));
-      }
-    }
-
-    // 3. TERTIARY RELAY: SMS ONLINE GH (If Arkesel failed or was skipped)
-    if (!success && smsOnlineKey) {
-      try {
-        console.log(`[RELAY_SMSONLINE] Attempting tertiary dispatch via SMS Online GH...`);
-        
-        // SMS Online GH V4 Endpoint
-        const response = await axios.post(`https://api.smsonlinegh.com/v4/message/sms/send`, {
-          text: message,
-          destinations: normalizedNumbers,
-          sender: tacticalSender.substring(0, 11)
-        }, {
-          headers: { 
-            'Authorization': `Bearer ${smsOnlineKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 12000
-        });
-
-        if (response.status === 200 || response.status === 201) {
-          success = true;
-          relayUsed = "SMS_ONLINE_GH";
-          console.log(`[RELAY_SUCCESS] SMS Online GH dispatch confirmed.`);
-        }
-      } catch (e: any) {
-        const errData = e.response?.data || e.message;
-        console.error("[RELAY_ERR] SMS Online GH tertiary failed:", JSON.stringify(errData));
-        if (!lastErrorDetails) lastErrorDetails = errData;
-      }
-    }
-
-    if (success) {
-      return res.json({ 
-        status: "success", 
-        relay: relayUsed,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // If we reached here, primary and all fallbacks failed (e.g. balance/coverage issues)
-    // To ensure a resilient end-to-end user experience, we automatically fallback to SIMULATION_MODE
-    console.warn(`[TACTICAL_RELAY_WARN] Live gateways failed: ${JSON.stringify(lastErrorDetails)}. Activating simulation fallback.`);
+    // If we reached here, live gateways failed
+    console.warn(`[TACTICAL_RELAY_WARN] Live gateways failed: ${JSON.stringify(result.error)}. Activating simulation fallback.`);
     return res.json({
       status: "success",
       relay: "SIMULATION_FALLBACK",
       timestamp: new Date().toISOString(),
-      message: `DEMO: Dispatched in simulated mode (${lastErrorDetails?.message || "Empty Balance/Coverage Error"}).`,
-      details: lastErrorDetails,
+      message: `DEMO: Dispatched in simulated mode (${result.error?.message || "Empty Balance/Coverage Error"}).`,
+      details: result.error,
       unitsReached: phoneNumbers.length
     });
   });

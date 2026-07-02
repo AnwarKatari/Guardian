@@ -142,6 +142,8 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const [bio, setBio] = useState(profile?.bio || '');
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [localPhone, setLocalPhone] = useState(profile?.phoneNumber || '');
   const [isGeneratingBio, setIsGeneratingBio] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [newContact, setNewContact] = useState({ name: '', phone: '', email: '' });
@@ -167,6 +169,12 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
     }
   }, []);
 
+  useEffect(() => {
+    if (profile?.phoneNumber) {
+      setLocalPhone(profile.phoneNumber);
+    }
+  }, [profile?.phoneNumber]);
+
   const handleUpdateName = async () => {
     if (!displayName.trim()) return;
     setIsUpdating(true);
@@ -191,6 +199,21 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
       await updateProfile({ bio });
       setIsEditingBio(false);
       setSuccessMessage("BIO PERSISTED");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleUpdatePhone = async () => {
+    if (!localPhone.trim()) return;
+    setIsUpdating(true);
+    try {
+      await updateProfile({ phoneNumber: localPhone.trim() });
+      setIsEditingPhone(false);
+      setSuccessMessage("CONTACT TELEPHONE UPDATED");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       console.error(err);
@@ -561,7 +584,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-neutral-50 grid grid-cols-2 gap-6">
+        <div className="mt-10 pt-6 border-t border-neutral-50 grid grid-cols-2 gap-y-4 gap-x-6">
           <div className="space-y-1">
             <p className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.3em] italic">Primary Region</p>
             <button 
@@ -580,6 +603,49 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                Synced
             </div>
           </div>
+
+          {/* Registered Phone Number - Now positioned directly after primary country/region as requested */}
+          <div className="space-y-2 relative group/phone-edit pt-4 border-t border-neutral-100 col-span-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[8px] font-black text-neutral-300 uppercase tracking-[0.3em] italic">Contact Telephone</p>
+              {isEditingPhone ? (
+                <button onClick={handleUpdatePhone} className="text-[7px] font-black text-emerald-600 uppercase tracking-tight px-2 py-0.5 border border-emerald-100 rounded-full hover:bg-emerald-50">Save</button>
+              ) : (
+                <button 
+                  onClick={() => setIsEditingPhone(true)}
+                  className="opacity-0 group-hover/phone-edit:opacity-100 transition-opacity text-blue-600"
+                >
+                  <Edit2 size={10} />
+                </button>
+              )}
+            </div>
+            
+            {isEditingPhone ? (
+              <div className="flex gap-2">
+                <input 
+                  type="tel"
+                  value={localPhone}
+                  onChange={(e) => setLocalPhone(e.target.value)}
+                  className="flex-1 bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2 text-[10px] font-bold text-neutral-800 outline-none focus:border-blue-500 italic"
+                  placeholder="Enter phone number..."
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <p 
+                onClick={() => {
+                  setLocalPhone(profile?.phoneNumber || '');
+                  setIsEditingPhone(true);
+                }}
+                className="text-[10px] font-bold text-neutral-600 leading-relaxed italic cursor-pointer group-hover/phone-edit:text-neutral-900 transition-colors flex items-center gap-1.5"
+              >
+                <Phone size={12} className="text-blue-500" />
+                {profile?.phoneNumber || (
+                  <span className="text-red-500 uppercase tracking-widest text-[8px] font-black animate-pulse">Required contact missing!</span>
+                )}
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
@@ -591,6 +657,61 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
         </div>
 
         <div className="bg-white border border-neutral-100 rounded-[40px] overflow-hidden divide-y divide-neutral-50 shadow-2xl shadow-blue-500/5 transition-all">
+          {/* SOS Hold Duration Configuration */}
+          <div className="p-6 space-y-4 hover:bg-neutral-50 transition-colors group">
+            <div className="flex items-center gap-5">
+              <div className="p-4 rounded-[20px] bg-neutral-50 text-neutral-400 border border-neutral-100 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-100 transition-all duration-300 shadow-sm">
+                <Clock size={20} className="text-neutral-400 group-hover:text-blue-600 transition-colors" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-neutral-900 uppercase tracking-widest italic leading-none">SOS Hold Delay</p>
+                <p className="text-[9px] font-bold text-neutral-400 uppercase leading-none tracking-tight italic">Adjust how long you must force-hold the button to trigger SOS</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-w-md pt-2">
+              <label className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.2em] ml-1">Select Trigger Hold Delay</label>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { label: 'Instant', value: 0 },
+                  { label: '2s', value: 2000 },
+                  { label: '3s', value: 3000 },
+                  { label: '4s', value: 4000 },
+                  { label: '5s', value: 5000 },
+                ].map((option) => {
+                  const currentValue = profile?.sosHoldDuration !== undefined ? profile.sosHoldDuration : 1500;
+                  const isActive = (option.value === 0 && currentValue === 0) || 
+                                   (option.value === 2000 && (currentValue > 0 && currentValue <= 2000)) ||
+                                   (option.value === 3000 && currentValue === 3000) ||
+                                   (option.value === 4000 && currentValue === 4000) ||
+                                   (option.value === 5000 && currentValue === 5000);
+                  
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={async () => {
+                        await updateProfile({ sosHoldDuration: option.value });
+                        setSuccessMessage(`HOLD DELAY CONFIGURED TO ${option.label.toUpperCase()}`);
+                        setTimeout(() => setSuccessMessage(null), 3000);
+                      }}
+                      className={cn(
+                        "py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border text-center cursor-pointer",
+                        isActive 
+                          ? "bg-neutral-900 border-neutral-900 text-white shadow-md shadow-neutral-200" 
+                          : "bg-white border-neutral-100 text-neutral-500 hover:border-neutral-300"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest italic mt-1 leading-normal">
+                Setting this to "Instant" will trigger SOS on a single tap. Set a delay to protect against accidental triggers in your pocket.
+              </p>
+            </div>
+          </div>
+
           {/* Audio Guard */}
           <div className="p-6 flex items-center justify-between hover:bg-neutral-50 transition-colors group">
             <div className="flex items-center gap-5">

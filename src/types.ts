@@ -59,6 +59,7 @@ export interface UserProfile {
   points?: number;
   badges?: string[];
   completedChallenges?: string[];
+  sosHoldDuration?: number;
 }
 
 export interface OfflineRegion {

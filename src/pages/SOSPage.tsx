@@ -53,7 +53,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
   const progressRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  const HOLD_DURATION = 5000;
+  const HOLD_DURATION = profile?.sosHoldDuration !== undefined ? profile.sosHoldDuration : 1500;
   const CIRCUMFERENCE = 740; // Approx 2 * pi * (280 * 0.42)
 
   const triggerWarning = (msg: string) => {
@@ -96,6 +96,12 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     
     // Prevent double triggers / mouse simulation emulation
     e.preventDefault();
+
+    if (HOLD_DURATION === 0) {
+      handleTrigger();
+      return;
+    }
+
     if (isActivating) return;
 
     // Clear any previous active timers/intervals and warnings
@@ -141,6 +147,10 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     if (isAlertActive) return;
     if (e) e.preventDefault();
 
+    if (HOLD_DURATION === 0) {
+      return;
+    }
+
     const wasActivating = isActivating;
 
     // Clear active intervals/timers immediately
@@ -155,7 +165,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
 
     // If they let go before progress reaches 1, reset and show hold warning
     if (wasActivating && progressRef.current < 1) {
-      triggerWarning("Do not lift your finger up until countdown finishes! Hold for a full 5 seconds to send SOS.");
+      triggerWarning(`Do not lift your finger up until countdown finishes! Hold for a full ${HOLD_DURATION / 1000} seconds to send SOS.`);
       triggerHaptic([150, 50, 150]); // Short warning buzz
     }
 
@@ -235,7 +245,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
   }, [profile?.emergencyContacts]);
 
   return (
-    <div className="min-h-screen bg-white p-6 space-y-8 pb-32 max-w-lg mx-auto relative overflow-hidden font-sans text-neutral-900">
+    <div className="min-h-screen bg-white p-6 md:p-10 space-y-8 pb-32 max-w-lg md:max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto relative overflow-hidden font-sans text-neutral-900">
       {/* Dynamic Background Accents (Home Page Style) */}
       <div className="absolute top-0 right-0 w-[80%] h-[40%] bg-blue-50/50 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[60%] h-[40%] bg-indigo-50/40 blur-[100px] pointer-events-none" />
@@ -303,415 +313,426 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
         )}
       </AnimatePresence>
 
-      {/* Main Content Area - Centered and Firm */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6 py-4">
+      {/* Main Responsive Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start relative z-10 w-full mt-4">
         
-        {/* The Central Hub */}
-        <div className="relative group">
-          {/* External Halo pulses (Apple Blinking Red & Heartbeat Effect) */}
-          <AnimatePresence>
-            {!isAlertActive ? (
-              <>
-                <motion.div 
-                  initial={{ opacity: 0.3, scale: 0.95 }}
-                  animate={{ opacity: [0.5, 0, 0.5], scale: [1, 1.35, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute inset-[-12px] rounded-full border-2 border-red-500/30 pointer-events-none"
-                />
-                <motion.div 
-                  initial={{ opacity: 0.15, scale: 0.9 }}
-                  animate={{ opacity: [0.3, 0, 0.3], scale: [1, 1.7, 1] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute inset-[-28px] rounded-full border border-red-500/15 pointer-events-none"
-                />
-                <div className="absolute inset-[-6px] rounded-full bg-red-500/5 animate-pulse pointer-events-none" />
-              </>
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: [0.8, 0.4, 0.8], scale: 1 }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                exit={{ opacity: 0, scale: 1.2 }}
-                className="absolute inset-x-[-40%] inset-y-[-40%] rounded-full bg-red-600/10 blur-3xl"
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Neumorphic Base */}
-          <div className="relative flex items-center justify-center w-[75vw] h-[75vw] max-w-[280px] max-h-[280px] rounded-full bg-white shadow-[12px_12px_36px_rgba(0,0,0,0.06),-12px_-12px_36px_rgba(255,255,255,0.8)] border-[1px] border-neutral-100 p-2">
+        {/* Left Column: Central Hub (SOS Fingerprint Hold Engine) */}
+        <div className="lg:col-span-6 flex flex-col items-center justify-center bg-neutral-50/50 border border-neutral-100 rounded-[40px] p-6 sm:p-10 shadow-sm relative overflow-hidden w-full">
+          {/* Main Content Area - Centered and Firm */}
+          <div className="w-full flex flex-col items-center justify-center relative z-10 py-4">
             
-            {/* Inner Ring (Static Detail) */}
-            <div className="absolute inset-4 rounded-full border border-neutral-50 shadow-inner" />
-            
-            {/* Clock Ticks Detail */}
-            <div className="absolute inset-3 rounded-full border border-dashed border-neutral-100 opacity-60 pointer-events-none" />
-
-            {/* Rotating UI elements */}
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 opacity-10 pointer-events-none"
-            >
-              {[0, 90, 180, 270].map(deg => (
-                <div key={deg} className="absolute top-4 left-1/2 -translate-x-1/2 w-[2px] h-4 bg-neutral-900 rounded-full" style={{ transform: `rotate(${deg}deg)` }} />
-              ))}
-            </motion.div>
- 
-            {/* SOS Button Container */}
-            <div className="relative flex items-center justify-center w-[65vw] h-[65vw] max-w-[240px] max-h-[240px]">
-              
-              {/* SVG Progress Ring */}
+            {/* The Central Hub */}
+            <div className="relative group">
+              {/* External Halo pulses (Apple Blinking Red & Heartbeat Effect) */}
               <AnimatePresence>
-                {!isAlertActive && (
-                  <motion.svg 
-                    className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none z-20"
-                    exit={{ opacity: 0, scale: 1.1 }}
-                  >
-                    <circle 
-                      cx="50%" 
-                      cy="50%" 
-                      r="42%" 
-                      stroke="url(#sos-ring-grad)" 
-                      strokeWidth="12" 
-                      fill="none" 
-                      strokeLinecap="round"
-                      style={{
-                        strokeDasharray: CIRCUMFERENCE,
-                        strokeDashoffset: CIRCUMFERENCE - (progress * CIRCUMFERENCE),
-                        transition: "stroke-dashoffset 0.1s linear"
-                      }}
+                {!isAlertActive ? (
+                  <>
+                    <motion.div 
+                      initial={{ opacity: 0.3, scale: 0.95 }}
+                      animate={{ opacity: [0.5, 0, 0.5], scale: [1, 1.35, 1] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-[-12px] rounded-full border-2 border-red-500/30 pointer-events-none"
                     />
-                    <defs>
-                      <linearGradient id="sos-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#f87171" />
-                        <stop offset="100%" stopColor="#991b1b" />
-                      </linearGradient>
-                    </defs>
-                  </motion.svg>
+                    <motion.div 
+                      initial={{ opacity: 0.15, scale: 0.9 }}
+                      animate={{ opacity: [0.3, 0, 0.3], scale: [1, 1.7, 1] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-[-28px] rounded-full border border-red-500/15 pointer-events-none"
+                    />
+                    <div className="absolute inset-[-6px] rounded-full bg-red-500/5 animate-pulse pointer-events-none" />
+                  </>
+                ) : (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: [0.8, 0.4, 0.8], scale: 1 }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    exit={{ opacity: 0, scale: 1.2 }}
+                    className="absolute inset-x-[-40%] inset-y-[-40%] rounded-full bg-red-600/10 blur-3xl"
+                  />
                 )}
               </AnimatePresence>
- 
-              {/* The 3D SOS Button */}
-              <motion.button
-                onMouseDown={startHold}
-                onMouseUp={endHold}
-                onMouseLeave={endHold}
-                onTouchStart={startHold}
-                onTouchEnd={endHold}
-                onTouchCancel={endHold}
-                animate={
-                  isAlertActive ? 
-                  { scale: 1, backgroundColor: "#09090b" } : 
-                  isActivating ? { scale: 0.92, backgroundColor: "#991b1b" } : 
-                  { scale: 1, backgroundColor: "#ef4444" }
-                }
-                className={cn(
-                  "absolute inset-0 z-30 rounded-full flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-500 border-red-400/50",
-                  isAlertActive ? "bg-gradient-to-br from-zinc-800 to-zinc-950 shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),inset_0_-8px_16px_rgba(0,0,0,0.6),0_20px_60px_rgba(0,0,0,0.4)] border-zinc-700/50" :
-                  "bg-gradient-to-br from-red-500 via-red-600 to-red-700 shadow-[inset_0_6px_12px_rgba(255,255,255,0.35),inset_0_-6px_12px_rgba(0,0,0,0.15),0_15px_35px_rgba(239,68,68,0.45)]"
-                )}
-              >
-                {/* Visual Depth / Gloss */}
-                {!isAlertActive && (
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,_rgba(255,255,255,0.25)_0%,_transparent_60%)]" />
-                )}
- 
-                <AnimatePresence mode="wait">
-                  {isAlertActive ? (
-                    <motion.div 
-                      key="locked"
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="flex flex-col items-center text-white"
-                    >
-                      <div className="p-4 bg-emerald-500/25 rounded-[24px] mb-2 border border-emerald-500/30 shadow-inner">
-                        <Lock size={32} className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
-                      </div>
-                      <span className="font-black text-2xl tracking-[0.2em] uppercase leading-none drop-shadow-md text-emerald-400 italic font-display">Locked</span>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400/50 mt-2 italic">Dispatch Ongoing</p>
-                    </motion.div>
-                  ) : isActivating ? (
-                    <motion.div 
-                      key="activating"
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="flex flex-col items-center text-white"
-                    >
-                      <div className="relative mb-2">
-                        <Fingerprint size={56} className="animate-pulse text-red-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]" />
-                        <motion.div 
-                          animate={{ top: ["0%", "100%", "0%"] }}
-                          transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                          className="absolute left-0 w-full h-[2px] bg-white brightness-200 shadow-[0_0_10px_white]"
+
+              {/* Neumorphic Base */}
+              <div className="relative flex items-center justify-center w-[75vw] h-[75vw] max-w-[280px] max-h-[280px] rounded-full bg-white shadow-[12px_12px_36px_rgba(0,0,0,0.06),-12px_-12px_36px_rgba(255,255,255,0.8)] border-[1px] border-neutral-100 p-2">
+                
+                {/* Inner Ring (Static Detail) */}
+                <div className="absolute inset-4 rounded-full border border-neutral-50 shadow-inner" />
+                
+                {/* Clock Ticks Detail */}
+                <div className="absolute inset-3 rounded-full border border-dashed border-neutral-100 opacity-60 pointer-events-none" />
+
+                {/* Rotating UI elements */}
+                <motion.div 
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  className="absolute inset-0 opacity-10 pointer-events-none"
+                >
+                  {[0, 90, 180, 270].map(deg => (
+                    <div key={deg} className="absolute top-4 left-1/2 -translate-x-1/2 w-[2px] h-4 bg-neutral-900 rounded-full" style={{ transform: `rotate(${deg}deg)` }} />
+                  ))}
+                </motion.div>
+     
+                {/* SOS Button Container */}
+                <div className="relative flex items-center justify-center w-[65vw] h-[65vw] max-w-[240px] max-h-[240px]">
+                  
+                  {/* SVG Progress Ring */}
+                  <AnimatePresence>
+                    {!isAlertActive && (
+                      <motion.svg 
+                        className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none z-20"
+                        exit={{ opacity: 0, scale: 1.1 }}
+                      >
+                        <circle 
+                          cx="50%" 
+                          cy="50%" 
+                          r="42%" 
+                          stroke="url(#sos-ring-grad)" 
+                          strokeWidth="12" 
+                          fill="none" 
+                          strokeLinecap="round"
+                          style={{
+                            strokeDasharray: CIRCUMFERENCE,
+                            strokeDashoffset: CIRCUMFERENCE - (progress * CIRCUMFERENCE),
+                            transition: "stroke-dashoffset 0.1s linear"
+                          }}
                         />
-                      </div>
-                      <span className="font-black text-xs tracking-widest uppercase italic font-display text-white">Transmitting</span>
-                      <span className="font-black text-xl tracking-tighter text-yellow-300 uppercase italic mt-1 font-display">
-                        Hold {Math.max(1, Math.ceil(5 - progress * 5))}s
-                      </span>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      key="idle"
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="flex flex-col items-center text-white"
-                    >
-                      <span className="font-black text-[72px] tracking-tighter uppercase drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)] leading-none mb-1 italic font-display text-white">SOS</span>
-                      <div className="bg-black/25 px-5 py-1.5 rounded-full backdrop-blur-md shadow-inner border border-white/10">
-                        <span className="text-[9px] font-black tracking-[0.25em] uppercase text-red-50 italic">Force Hold</span>
-                      </div>
-                      <div className="mt-3 flex items-center gap-1.5 opacity-50">
-                         <Shield size={10} />
-                         <span className="text-[8px] font-black uppercase tracking-widest italic">Encrypted Connection</span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.button>
+                        <defs>
+                          <linearGradient id="sos-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#f87171" />
+                            <stop offset="100%" stopColor="#991b1b" />
+                          </linearGradient>
+                        </defs>
+                      </motion.svg>
+                    )}
+                  </AnimatePresence>
+     
+                  {/* The 3D SOS Button with Right-Click and Left-Click holding support */}
+                  <motion.button
+                    onMouseDown={startHold}
+                    onMouseUp={endHold}
+                    onMouseLeave={endHold}
+                    onTouchStart={startHold}
+                    onTouchEnd={endHold}
+                    onTouchCancel={endHold}
+                    onContextMenu={(e) => e.preventDefault()}
+                    animate={
+                      isAlertActive ? 
+                      { scale: 1, backgroundColor: "#09090b" } : 
+                      isActivating ? { scale: 0.92, backgroundColor: "#991b1b" } : 
+                      { scale: 1, backgroundColor: "#ef4444" }
+                    }
+                    className={cn(
+                      "absolute inset-0 z-30 rounded-full flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-500 border-red-400/50 cursor-pointer",
+                      isAlertActive ? "bg-gradient-to-br from-zinc-800 to-zinc-950 shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),inset_0_-8px_16px_rgba(0,0,0,0.6),0_20px_60px_rgba(0,0,0,0.4)] border-zinc-700/50" :
+                      "bg-gradient-to-br from-red-500 via-red-600 to-red-700 shadow-[inset_0_6px_12px_rgba(255,255,255,0.35),inset_0_-6px_12px_rgba(0,0,0,0.15),0_15px_35px_rgba(239,68,68,0.45)]"
+                    )}
+                  >
+                    {/* Visual Depth / Gloss */}
+                    {!isAlertActive && (
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,_rgba(255,255,255,0.25)_0%,_transparent_60%)]" />
+                    )}
+     
+                    <AnimatePresence mode="wait">
+                      {isAlertActive ? (
+                        <motion.div 
+                          key="locked"
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="flex flex-col items-center text-white"
+                        >
+                          <div className="p-4 bg-emerald-500/25 rounded-[24px] mb-2 border border-emerald-500/30 shadow-inner">
+                            <Lock size={32} className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+                          </div>
+                          <span className="font-black text-2xl tracking-[0.2em] uppercase leading-none drop-shadow-md text-emerald-400 italic font-display">Locked</span>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400/50 mt-2 italic">Dispatch Ongoing</p>
+                        </motion.div>
+                      ) : isActivating ? (
+                        <motion.div 
+                          key="activating"
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="flex flex-col items-center text-white"
+                        >
+                          <div className="relative mb-2">
+                            <Fingerprint size={56} className="animate-pulse text-red-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]" />
+                            <motion.div 
+                              animate={{ top: ["0%", "100%", "0%"] }}
+                              transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                              className="absolute left-0 w-full h-[2px] bg-white brightness-200 shadow-[0_0_10px_white]"
+                            />
+                          </div>
+                          <span className="font-black text-xs tracking-widest uppercase italic font-display text-white">Transmitting</span>
+                          <span className="font-black text-xl tracking-tighter text-yellow-300 uppercase italic mt-1 font-display">
+                            Hold {Math.max(1, Math.ceil((HOLD_DURATION / 1000) - progress * (HOLD_DURATION / 1000)))}s
+                          </span>
+                        </motion.div>
+                      ) : (
+                        <motion.div 
+                          key="idle"
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="flex flex-col items-center text-white"
+                        >
+                          <span className="font-black text-[72px] tracking-tighter uppercase drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)] leading-none mb-1 italic font-display text-white">SOS</span>
+                          <div className="bg-black/25 px-5 py-1.5 rounded-full backdrop-blur-md shadow-inner border border-white/10">
+                            <span className="text-[9px] font-black tracking-[0.25em] uppercase text-red-50 italic">{HOLD_DURATION === 0 ? "Tap to Trigger" : "Force Hold"}</span>
+                          </div>
+                          <div className="mt-3 flex items-center gap-1.5 opacity-50">
+                             <Shield size={10} />
+                             <span className="text-[8px] font-black uppercase tracking-widest italic">Encrypted Connection</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                </div>
+              </div>
             </div>
+
+            {/* Instant SOS Dispatch Button - Apple style secondary wow button */}
+            {!isAlertActive && (
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleTrigger}
+                className="w-full max-w-sm mt-8 p-5 bg-gradient-to-r from-neutral-900 via-red-950 to-neutral-900 border border-neutral-800 rounded-[30px] shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),0_15px_30px_rgba(220,38,38,0.15)] flex items-center justify-between group relative overflow-hidden transition-all duration-300 pointer-events-auto cursor-pointer"
+              >
+                <div className="absolute inset-0 bg-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="p-3 bg-red-600/15 text-red-500 rounded-2xl group-hover:bg-red-600 group-hover:text-white transition-all shadow-md">
+                    <ShieldAlert size={20} className="animate-pulse" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-red-400 font-mono italic">Alternative Trigger</span>
+                    <p className="font-black text-sm text-white uppercase tracking-tight mt-0.5">1-TAP INSTANT DISPATCH</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 relative z-10 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-red-300">Instant</span>
+                </div>
+              </motion.button>
+            )}
+     
+            {/* Emergency Circle Status (Firmly anchored) */}
+            {!isAlertActive && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 flex flex-col items-center gap-3"
+              >
+                <div className="flex -space-x-3">
+                  {profile?.emergencyContacts && profile.emergencyContacts.length > 0 ? (
+                    <>
+                      {profile.emergencyContacts.slice(0, 5).map(c => {
+                        const fetchedMember = activeCircle.find(m => m.uid === c.id);
+                        return (
+                          <div key={c.id} className="w-10 h-10 rounded-full border-4 border-white overflow-hidden shadow-xl transition-all hover:scale-110 hover:z-10 group relative">
+                            <img 
+                              src={fetchedMember?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name || c.id}`} 
+                              className="w-full h-full object-cover" 
+                              alt="" 
+                            />
+                            <div className={cn(
+                              "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white",
+                              fetchedMember?.isOnline ? "bg-emerald-500 shadow-[0_0_5px_#10b981]" : "bg-neutral-300"
+                            )} />
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    [1,2,3].map(i => (
+                      <div key={i} className="w-10 h-10 rounded-full border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm">
+                        <UserCheck size={14} className="text-neutral-300" />
+                      </div>
+                    ))
+                  )}
+                </div>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-neutral-400 italic">
+                  {profile?.emergencyContacts?.length || 0} Network Contacts Linked
+                </p>
+              </motion.div>
+            )}
           </div>
         </div>
+     
+        {/* Right Column: Action Panels & Critical Safe Controls */}
+        <div className="lg:col-span-6 w-full">
+          <AnimatePresence mode="wait">
+            {!isAlertActive ? (
+              <motion.div 
+                key="idle-panel"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                className="space-y-4 w-full"
+              >
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => {
+                      if (checkInTimer.isActive) cancelCheckInTimer();
+                      else setShowCheckInModal(true);
+                    }}
+                    className="p-6 bg-white border border-neutral-100 rounded-[32px] shadow-sm flex flex-col items-start gap-4 hover:border-blue-500/30 transition-all group cursor-pointer"
+                  >
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-all">
+                      {checkInTimer.isActive ? (
+                        <span className="text-xs font-black">
+                          {Math.floor(checkInTimer.remainingSeconds / 60)}m
+                        </span>
+                      ) : <Clock size={20} />}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 italic">Safety Timer</p>
+                      <p className="font-black text-sm text-neutral-900 mt-0.5 italic uppercase">
+                        {checkInTimer.isActive ? "Monitoring..." : "Set Check-in"}
+                      </p>
+                    </div>
+                  </button>
 
-        {/* Instant SOS Dispatch Button - Apple style secondary wow button */}
-        {!isAlertActive && (
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={handleTrigger}
-            className="w-full max-w-sm mt-8 p-5 bg-gradient-to-r from-neutral-900 via-red-950 to-neutral-900 border border-neutral-800 rounded-[30px] shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),0_15px_30px_rgba(220,38,38,0.15)] flex items-center justify-between group relative overflow-hidden transition-all duration-300 pointer-events-auto"
-          >
-            <div className="absolute inset-0 bg-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="p-3 bg-red-600/15 text-red-500 rounded-2xl group-hover:bg-red-600 group-hover:text-white transition-all shadow-md">
-                <ShieldAlert size={20} className="animate-pulse" />
-              </div>
-              <div className="text-left">
-                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-red-400 font-mono italic">Alternative Trigger</span>
-                <p className="font-black text-sm text-white uppercase tracking-tight mt-0.5">1-TAP INSTANT DISPATCH</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 relative z-10 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-              <span className="text-[8px] font-black uppercase tracking-widest text-red-300">Instant</span>
-            </div>
-          </motion.button>
-        )}
- 
-        {/* Emergency Circle Status (Firmly anchored) */}
-        {!isAlertActive && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-8 flex flex-col items-center gap-3"
-          >
-            <div className="flex -space-x-3">
-              {profile?.emergencyContacts && profile.emergencyContacts.length > 0 ? (
-                <>
-                  {profile.emergencyContacts.slice(0, 5).map(c => {
-                    const fetchedMember = activeCircle.find(m => m.uid === c.id);
-                    return (
-                      <div key={c.id} className="w-10 h-10 rounded-full border-4 border-white overflow-hidden shadow-xl transition-all hover:scale-110 hover:z-10 group relative">
-                        <img 
-                          src={fetchedMember?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name || c.id}`} 
-                          className="w-full h-full object-cover" 
-                          alt="" 
-                        />
-                        <div className={cn(
-                          "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white",
-                          fetchedMember?.isOnline ? "bg-emerald-500 shadow-[0_0_5px_#10b981]" : "bg-neutral-300"
-                        )} />
+                  <button 
+                    onClick={() => setShowFakeCall(true)}
+                    className="p-6 bg-white border border-neutral-100 rounded-[32px] shadow-sm flex flex-col items-start gap-4 hover:border-blue-500/30 transition-all group cursor-pointer"
+                  >
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                      <PhoneCall size={20} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 italic">Deterrent</p>
+                      <p className="font-black text-sm text-neutral-900 mt-0.5 italic uppercase">Fake Call</p>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="bg-white border border-neutral-100 rounded-[40px] p-6 shadow-sm space-y-4">
+                  <div className="flex items-center gap-3 px-2">
+                    <div className="w-1.5 h-3.5 bg-red-600 rounded-full animate-pulse" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 italic">Emergency Hub Contacts</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {/* Police */}
+                    <motion.a 
+                      href={`tel:${emergencyData.police}`}
+                      whileHover={{ y: -3, scale: 1.01 }}
+                      className="p-5 bg-white border-2 border-red-100 rounded-[28px] flex items-center justify-between group transition-all shadow-md shadow-red-500/5 hover:border-red-600/30"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-red-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-red-200 transition-transform group-hover:scale-105">
+                          <ShieldAlert size={24} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Emergency Dispatch</p>
+                          <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-red-600 transition-colors underline decoration-red-600/20 underline-offset-4">{emergencyData.police}</p>
+                        </div>
                       </div>
-                    );
-                  })}
-                </>
-              ) : (
-                [1,2,3].map(i => (
-                  <div key={i} className="w-10 h-10 rounded-full border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm">
-                    <UserCheck size={14} className="text-neutral-300" />
+                      <ChevronRight size={18} className="text-neutral-200 group-hover:text-red-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                    </motion.a>
+
+                    {/* Medical */}
+                    <motion.a 
+                      href={`tel:${emergencyData.ambulance}`}
+                      whileHover={{ y: -3, scale: 1.01 }}
+                      className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-blue-500/30"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                          <Stethoscope size={24} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Medical Services</p>
+                          <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-blue-600 transition-colors underline decoration-blue-600/10 underline-offset-4">{emergencyData.ambulance}</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} className="text-neutral-200 group-hover:text-blue-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                    </motion.a>
+
+                    {/* Fire */}
+                    <motion.a 
+                      href={`tel:${emergencyData.fire}`}
+                      whileHover={{ y: -3, scale: 1.01 }}
+                      className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-amber-500/30"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all shadow-inner">
+                          <Flame size={24} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Fire Services</p>
+                          <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-amber-500 transition-colors underline decoration-amber-500/10 underline-offset-4">{emergencyData.fire}</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} className="text-neutral-200 group-hover:text-amber-500 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
+                    </motion.a>
                   </div>
-                ))
-              )}
-            </div>
-            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-neutral-400 italic">
-              {profile?.emergencyContacts?.length || 0} Network Contacts Linked
-            </p>
-          </motion.div>
-        )}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="active-panel"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                className="space-y-4 w-full"
+              >
+                <div className="bg-white border border-neutral-100 p-8 rounded-[44px] shadow-2xl space-y-6 relative overflow-hidden">
+                   {/* Background Glow */}
+                   <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 blur-3xl -mr-24 -mt-24 pointer-events-none" />
+
+                  <div className="flex items-center gap-5 bg-neutral-50 border border-neutral-100 p-6 rounded-[32px] shadow-inner">
+                    <div className="p-4 bg-emerald-500 text-white rounded-2xl relative shadow-lg shadow-emerald-500/20">
+                      <ShieldCheck size={28} />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-neutral-900 font-black text-base uppercase tracking-tight italic">Protocol Live</h3>
+                      <p className="text-neutral-500 text-[10px] mt-1 font-black uppercase italic tracking-widest opacity-60">Identity & Location Broadcasted</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-3">
+                    <a 
+                      href={`tel:${emergencyData.police}`}
+                      className="w-full flex items-center justify-between px-8 py-5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-[32px] font-black uppercase tracking-wider transition-all shadow-xl active:scale-95 italic group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <Shield size={20} className="text-blue-500" />
+                        <span>Call Police</span>
+                      </div>
+                      <span className="text-neutral-500 text-xs italic">{emergencyData.police}</span>
+                    </a>
+                    
+                    <a 
+                      href={`tel:${emergencyData.ambulance}`}
+                      className="w-full flex items-center justify-between px-8 py-5 bg-red-600 hover:bg-red-700 text-white rounded-[32px] font-black uppercase tracking-wider transition-all shadow-xl active:scale-95 italic group"
+                    >
+                       <div className="flex items-center gap-4">
+                        <Activity size={20} className="text-white" />
+                        <span>Emergency Med</span>
+                      </div>
+                      <span className="text-red-200 text-xs italic">{emergencyData.ambulance}</span>
+                    </a>
+                  </div>
+
+                  <button 
+                    onClick={cancelSOS}
+                    className="w-full py-4 text-neutral-400 font-black text-[10px] uppercase tracking-[0.4em] hover:text-neutral-900 transition-colors mt-2 italic group flex items-center justify-center gap-3 cursor-pointer"
+                  >
+                    <div className="w-5 h-5 rounded-full border-2 border-neutral-200 flex items-center justify-center p-1 group-hover:border-neutral-900 transition-colors">
+                      <RotateCcw size={10} />
+                    </div>
+                    Secure Termination
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
       </div>
- 
-      {/* Action Panels - Aligned with App spacing */}
-      <AnimatePresence mode="wait">
-        {!isAlertActive ? (
-          <motion.div 
-            key="idle-panel"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            className="px-6 pb-28 space-y-4"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              <button 
-                onClick={() => {
-                  if (checkInTimer.isActive) cancelCheckInTimer();
-                  else setShowCheckInModal(true);
-                }}
-                className="p-6 bg-white border border-neutral-100 rounded-[32px] shadow-sm flex flex-col items-start gap-4 hover:border-blue-500/30 transition-all group"
-              >
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  {checkInTimer.isActive ? (
-                    <span className="text-xs font-black">
-                      {Math.floor(checkInTimer.remainingSeconds / 60)}m
-                    </span>
-                  ) : <Clock size={20} />}
-                </div>
-                <div className="text-left">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 italic">Safety Timer</p>
-                  <p className="font-black text-sm text-neutral-900 mt-0.5 italic uppercase">
-                    {checkInTimer.isActive ? "Monitoring..." : "Set Check-in"}
-                  </p>
-                </div>
-              </button>
-
-              <button 
-                onClick={() => setShowFakeCall(true)}
-                className="p-6 bg-white border border-neutral-100 rounded-[32px] shadow-sm flex flex-col items-start gap-4 hover:border-blue-500/30 transition-all group"
-              >
-                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <PhoneCall size={20} />
-                </div>
-                <div className="text-left">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 italic">Deterrent</p>
-                  <p className="font-black text-sm text-neutral-900 mt-0.5 italic uppercase">Fake Call</p>
-                </div>
-              </button>
-            </div>
-
-            <div className="bg-white border border-neutral-100 rounded-[40px] p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-3 px-2">
-                <div className="w-1.5 h-3.5 bg-red-600 rounded-full animate-pulse" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 italic">Emergency Hub Contacts</h3>
-              </div>
-              
-              <div className="space-y-3">
-                {/* Police */}
-                <motion.a 
-                  href={`tel:${emergencyData.police}`}
-                  whileHover={{ y: -3, scale: 1.01 }}
-                  className="p-5 bg-white border-2 border-red-100 rounded-[28px] flex items-center justify-between group transition-all shadow-md shadow-red-500/5 hover:border-red-600/30"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-red-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-red-200 transition-transform group-hover:scale-105">
-                      <ShieldAlert size={24} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Emergency Dispatch</p>
-                      <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-red-600 transition-colors underline decoration-red-600/20 underline-offset-4">{emergencyData.police}</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-neutral-200 group-hover:text-red-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
-                </motion.a>
-
-                {/* Medical */}
-                <motion.a 
-                  href={`tel:${emergencyData.ambulance}`}
-                  whileHover={{ y: -3, scale: 1.01 }}
-                  className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-blue-500/30"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
-                      <Stethoscope size={24} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Medical Services</p>
-                      <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-blue-600 transition-colors underline decoration-blue-600/10 underline-offset-4">{emergencyData.ambulance}</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-neutral-200 group-hover:text-blue-600 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
-                </motion.a>
-
-                {/* Fire */}
-                <motion.a 
-                  href={`tel:${emergencyData.fire}`}
-                  whileHover={{ y: -3, scale: 1.01 }}
-                  className="p-5 bg-white border border-neutral-200 rounded-[28px] flex items-center justify-between group transition-all shadow-sm hover:border-amber-500/30"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all shadow-inner">
-                      <Flame size={24} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic opacity-80 leading-none">Fire Services</p>
-                      <p className="text-2xl font-black italic text-neutral-900 tracking-tighter uppercase leading-none group-hover:text-amber-500 transition-colors underline decoration-amber-500/10 underline-offset-4">{emergencyData.fire}</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-neutral-200 group-hover:text-amber-500 transition-all translate-x-0 group-hover:translate-x-1" strokeWidth={2.5} />
-                </motion.a>
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div 
-            key="active-panel"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            className="px-6 pb-28 space-y-4"
-          >
-            <div className="bg-white border border-neutral-100 p-8 rounded-[44px] shadow-2xl space-y-6 relative overflow-hidden">
-               {/* Background Glow */}
-               <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 blur-3xl -mr-24 -mt-24 pointer-events-none" />
-
-              <div className="flex items-center gap-5 bg-neutral-50 border border-neutral-100 p-6 rounded-[32px] shadow-inner">
-                <div className="p-4 bg-emerald-500 text-white rounded-2xl relative shadow-lg shadow-emerald-500/20">
-                  <ShieldCheck size={28} />
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-neutral-900 font-black text-base uppercase tracking-tight italic">Protocol Live</h3>
-                  <p className="text-neutral-500 text-[10px] mt-1 font-black uppercase italic tracking-widest opacity-60">Identity & Location Broadcasted</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-3">
-                <a 
-                  href={`tel:${emergencyData.police}`}
-                  className="w-full flex items-center justify-between px-8 py-5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-[32px] font-black uppercase tracking-wider transition-all shadow-xl active:scale-95 italic group"
-                >
-                  <div className="flex items-center gap-4">
-                    <Shield size={20} className="text-blue-500" />
-                    <span>Call Police</span>
-                  </div>
-                  <span className="text-neutral-500 text-xs italic">{emergencyData.police}</span>
-                </a>
-                
-                <a 
-                  href={`tel:${emergencyData.ambulance}`}
-                  className="w-full flex items-center justify-between px-8 py-5 bg-red-600 hover:bg-red-700 text-white rounded-[32px] font-black uppercase tracking-wider transition-all shadow-xl active:scale-95 italic group"
-                >
-                   <div className="flex items-center gap-4">
-                    <Activity size={20} className="text-white" />
-                    <span>Emergency Med</span>
-                  </div>
-                  <span className="text-red-200 text-xs italic">{emergencyData.ambulance}</span>
-                </a>
-              </div>
-
-              <button 
-                onClick={cancelSOS}
-                className="w-full py-4 text-neutral-400 font-black text-[10px] uppercase tracking-[0.4em] hover:text-neutral-900 transition-colors mt-2 italic group flex items-center justify-center gap-3"
-              >
-                <div className="w-5 h-5 rounded-full border-2 border-neutral-200 flex items-center justify-center p-1 group-hover:border-neutral-900 transition-colors">
-                  <RotateCcw size={10} />
-                </div>
-                Secure Termination
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <FakeCallModal isOpen={showFakeCall} onClose={() => setShowFakeCall(false)} />
 

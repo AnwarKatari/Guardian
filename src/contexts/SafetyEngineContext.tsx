@@ -212,7 +212,8 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     
     // EMERGENCY MESSAGE CONSTRUCTION
-    const finalMessage = `[Ai-POWERED SOS]\nSENDER: ${userName.toUpperCase()}\nSTATUS: ${sosBody}\nLOCATION: https://www.google.com/maps?q=${locationObj?.lat},${locationObj?.lng}\nTIME: ${timestamp}\nREF: ${currentUser.email}`;
+    const senderContact = currentProfile?.phoneNumber ? `\nCONTACT: ${currentProfile.phoneNumber}` : "";
+    const finalMessage = `[Ai-POWERED SOS]\nSENDER: ${userName.toUpperCase()}${senderContact}\nSTATUS: ${sosBody}\nLOCATION: https://www.google.com/maps?q=${locationObj?.lat},${locationObj?.lng}\nTIME: ${timestamp}\nREF: ${currentUser.email}`;
     
     let isSuccessfullySent = false;
     let usedRelay = "UNKNOWN";

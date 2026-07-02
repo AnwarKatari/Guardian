@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { signInWithGoogle, auth, db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -68,6 +68,7 @@ export default function AuthLanding() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,6 +266,7 @@ export default function AuthLanding() {
           email: email.trim(), 
           password: password, 
           displayName: mode === 'signup' ? displayName : undefined,
+          phoneNumber: mode === 'signup' ? phoneNumber.trim() : undefined,
           type: mode 
         })
       });
@@ -326,6 +328,44 @@ export default function AuthLanding() {
         const nameVal = displayName || 'Operator';
         await updateAuthProfile(userCredential.user, { displayName: nameVal });
 
+        // Save the phone number to user profile document immediately
+        try {
+          const userRef = doc(db, 'users', userCredential.user.uid);
+          await setDoc(userRef, {
+            uid: userCredential.user.uid,
+            displayName: nameVal,
+            email: email.trim().toLowerCase(),
+            phoneNumber: phoneNumber.trim(),
+            countryCode: 'GH',
+            emergencyContacts: [],
+            safetyZones: [],
+            isSharingLocation: false,
+            evidenceSync: true,
+            trustedContactIds: [],
+            onboardingComplete: false,
+            isPrivacyMode: false,
+            isOnline: true,
+            lastSeen: new Date().toISOString(),
+            voiceSentinelEnabled: false,
+            securityOverlayActive: false,
+            autoCheckInInterval: 0,
+            lastCheckInAt: '',
+            bio: '',
+            gender: 'other',
+            customSOSMessage: "EMERGENCY: I need help! My current location is attached.",
+            fakeCallSettings: {
+              callerName: "Security Dispatch",
+              triggerDelay: 5,
+              voiceType: 'neutral'
+            },
+            points: 0,
+            badges: [],
+            completedChallenges: []
+          }, { merge: true });
+        } catch (dbErr) {
+          console.error("Failed to save phone number to Firestore:", dbErr);
+        }
+
         // Trigger welcome email notification via AuthContext service
         await sendWelcomeNotification(email, nameVal);
       } else {
@@ -367,6 +407,7 @@ export default function AuthLanding() {
           email: email.trim(), 
           password: password,
           displayName: mode === 'signup' ? displayName : undefined,
+          phoneNumber: mode === 'signup' ? phoneNumber.trim() : undefined,
           type: mode 
         })
       });
@@ -685,27 +726,46 @@ export default function AuthLanding() {
                 {/* Main Auth Credentials Form */}
                 <form onSubmit={handleEmailAuth} className="space-y-5">
                   
-                  {/* Full Name Input (Signup mode only) */}
+                  {/* Full Name & Phone Number Input (Signup mode only) */}
                   <AnimatePresence mode="wait">
                     {mode === 'signup' && (
                       <motion.div 
-                        key="name-field"
+                        key="signup-extra-fields"
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="space-y-1.5"
+                        className="space-y-5"
                       >
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Full Name</label>
-                        <div className="relative group">
-                          <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-blue-600 transition-colors" size={16} />
-                          <input 
-                            type="text" 
-                            required
-                            value={displayName}
-                            onChange={(e) => setDisplayName(e.target.value)}
-                            placeholder="e.g. Benjamin Rose"
-                            className="w-full h-12 bg-neutral-50 border border-neutral-200 rounded-2xl pl-11 pr-4 text-xs focus:bg-white focus:border-blue-600 outline-none transition-all placeholder:text-neutral-400 font-bold uppercase italic tracking-wider text-neutral-900"
-                          />
+                        {/* Full Name */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Full Name</label>
+                          <div className="relative group">
+                            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-blue-600 transition-colors" size={16} />
+                            <input 
+                              type="text" 
+                              required
+                              value={displayName}
+                              onChange={(e) => setDisplayName(e.target.value)}
+                              placeholder="e.g. Benjamin Rose"
+                              className="w-full h-12 bg-neutral-50 border border-neutral-200 rounded-2xl pl-11 pr-4 text-xs focus:bg-white focus:border-blue-600 outline-none transition-all placeholder:text-neutral-400 font-bold uppercase italic tracking-wider text-neutral-900"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Telephone Contact */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Contact Telephone</label>
+                          <div className="relative group">
+                            <PhoneCall className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-blue-600 transition-colors" size={16} />
+                            <input 
+                              type="tel" 
+                              required
+                              value={phoneNumber}
+                              onChange={(e) => setPhoneNumber(e.target.value)}
+                              placeholder="e.g. 0244123456"
+                              className="w-full h-12 bg-neutral-50 border border-neutral-200 rounded-2xl pl-11 pr-4 text-xs focus:bg-white focus:border-blue-600 outline-none transition-all placeholder:text-neutral-400 font-bold tracking-wider text-neutral-900"
+                            />
+                          </div>
                         </div>
                       </motion.div>
                     )}

@@ -499,7 +499,7 @@ export default function OfflineModule({ setActiveTab }: { setActiveTab: (tab: st
       </header>
 
       {/* Main Container */}
-      <main className="p-6 space-y-8 flex-1 relative z-10 max-w-lg mx-auto w-full">
+      <main className="p-6 md:p-10 space-y-8 flex-1 relative z-10 max-w-lg md:max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto w-full">
         <AnimatePresence mode="wait">
           
           {/* TAB 1: EMERGENCY DIRECTORY */}
