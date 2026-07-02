@@ -11,6 +11,7 @@ import {
   initializeFirestore, 
   persistentLocalCache, 
   persistentMultipleTabManager,
+  persistentSingleTabManager,
   doc, 
   getDoc 
 } from 'firebase/firestore';
@@ -25,9 +26,35 @@ const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatab
   ? firebaseConfig.firestoreDatabaseId 
   : '(default)';
 
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
-}, dbId);
+const isIframe = typeof window !== 'undefined' && window !== window.parent;
+
+let cacheConfig;
+if (isIframe) {
+  // Inside an iframe/sandbox, multiple tab manager often fails due to storage/locking restrictions.
+  // Using persistentSingleTabManager is much safer and avoids "Unexpected state" assertion errors.
+  cacheConfig = persistentLocalCache({ tabManager: persistentSingleTabManager({}) });
+} else {
+  cacheConfig = persistentLocalCache({ tabManager: persistentMultipleTabManager() });
+}
+
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    localCache: cacheConfig
+  }, dbId);
+} catch (error) {
+  console.warn("Failed to initialize Firestore with primary cache config, falling back to persistentSingleTabManager...", error);
+  try {
+    dbInstance = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) })
+    }, dbId);
+  } catch (error2) {
+    console.error("Failed to initialize Firestore with localCache, initializing default...", error2);
+    dbInstance = initializeFirestore(app, {}, dbId);
+  }
+}
+
+export const db = dbInstance;
 
 export const storage = getStorage(app);
 export const auth = getAuth(app);

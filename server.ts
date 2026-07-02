@@ -63,10 +63,10 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env
 
 // Reusable Nodemailer Transporter
 const getTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587");
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const port = parseInt(process.env.SMTP_PORT || "465");
+  const user = process.env.SMTP_USER || "benjaminrose5050@gmail.com";
+  const pass = process.env.SMTP_PASS || "yxya nhbu vzhn huhr";
 
   if (host && user && pass) {
     return nodemailer.createTransport({
@@ -476,7 +476,7 @@ async function startServer() {
       if (transporter) {
         try {
           await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
+            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
             to: emailClean,
             subject: mailSubject,
             html: mailHtml
@@ -818,7 +818,7 @@ async function startServer() {
       if (transporter) {
         try {
           await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
+            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
             to: emailClean,
             subject: mailSubject,
             html: mailHtml
@@ -968,7 +968,7 @@ async function startServer() {
       if (transporter) {
         try {
           await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
+            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
             to: emailClean,
             subject: mailSubject,
             html: mailHtml
@@ -1062,7 +1062,7 @@ async function startServer() {
 
         if (transporter) {
           await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "no-reply@safetyos.com"}>`,
+            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
             to: toEmail,
             subject: mailSubject,
             html: mailHtml
