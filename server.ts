@@ -63,10 +63,10 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env
 
 // Reusable Nodemailer Transporter
 const getTransporter = () => {
-  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT || "465");
-  const user = process.env.SMTP_USER || "benjaminrose5050@gmail.com";
-  const pass = process.env.SMTP_PASS || "yxya nhbu vzhn huhr";
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
 
   if (host && user && pass) {
     return nodemailer.createTransport({
