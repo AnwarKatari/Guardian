@@ -99,12 +99,12 @@ export function RecentAlertsWidget({ firebaseIncidents, onSelectTab }: RecentAle
     };
 
     setLocalSimulatedAlerts(prev => [newAlert, ...prev]);
-    addLog(`⚠️ SIMULATION: Critical emergency alert simulated: "${newAlert.description}"`);
+    addLog(`SIMULATION: Critical emergency alert simulated: "${newAlert.description}"`);
   };
 
   const handleAcknowledge = (id: string, desc: string) => {
     setAcknowledgedIds(prev => [...prev, id]);
-    addLog(`✅ ACKNOWLEDGED: User secured grid coordinate for alert ID: ${id.substring(0, 8)}`);
+    addLog(`ACKNOWLEDGED: User secured grid coordinate for alert ID: ${id.substring(0, 8)}`);
   };
 
   return (
@@ -169,7 +169,7 @@ export function RecentAlertsWidget({ firebaseIncidents, onSelectTab }: RecentAle
       </div>
 
       {/* Alerts Stream List */}
-      <div className="flex-1 overflow-y-auto max-h-[310px] space-y-3 pr-1 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto md:max-h-none max-h-[310px] space-y-3 pr-1 custom-scrollbar">
         <AnimatePresence initial={false}>
           {filteredAlerts.length > 0 ? (
             filteredAlerts.map((alert) => {
@@ -297,12 +297,12 @@ export function CommunitySafetyScoreWidget() {
   const handleProtocolToggle = (key: 'masking' | 'sentinel' | 'handshake', label: string) => {
     const nextVal = !protocols[key];
     setProtocols(prev => ({ ...prev, [key]: nextVal }));
-    addLog(`🛡️ CONFIG: ${label} protocol ${nextVal ? 'ENABLED' : 'DISABLED'} - Recalculated Security Index.`);
+    addLog(`CONFIG: ${label} protocol ${nextVal ? 'ENABLED' : 'DISABLED'} - Recalculated Security Index.`);
   };
 
   const handleRadiusChange = (val: number) => {
     setRadius(val);
-    addLog(`🛰️ RANGE: Area telemetry scanning envelope set to ${val}km.`);
+    addLog(`RANGE: Area telemetry scanning envelope set to ${val}km.`);
   };
 
   return (
@@ -468,17 +468,17 @@ export function ActiveTrustedContactsWidget({ contacts = [], onSelectTab }: Acti
 
   const handlePingContact = (id: string, name: string) => {
     setPingedContactId(id);
-    addLog(`📡 OUTBOUND: Automated safety heartbeat ping transmitted to contact "${name}".`);
+    addLog(`OUTBOUND: Automated safety heartbeat ping transmitted to contact "${name}".`);
     
     setTimeout(() => {
       setPingedContactId(null);
-      addLog(`⚡ RESPONSE: Contact "${name}" device confirmed safe handshake packet received.`);
+      addLog(`RESPONSE: Contact "${name}" device confirmed safe handshake packet received.`);
     }, 2000);
   };
 
   const handleShareGps = (id: string, name: string) => {
     setGpsSharedId(id);
-    addLog(`🛰️ GEOSPATIAL: Real-time encrypted GPS handshake coordinates streaming to contact "${name}".`);
+    addLog(`GEOSPATIAL: Real-time encrypted GPS handshake coordinates streaming to contact "${name}".`);
     
     setTimeout(() => {
       setGpsSharedId(null);
@@ -512,7 +512,7 @@ export function ActiveTrustedContactsWidget({ contacts = [], onSelectTab }: Acti
       </div>
 
       {/* Contacts Grid/List */}
-      <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px] pr-1 custom-scrollbar">
+      <div className="flex-1 space-y-3 overflow-y-auto md:max-h-none max-h-[300px] pr-1 custom-scrollbar">
         {contacts.length > 0 ? (
           contacts.map((contact) => {
             const isPinged = pingedContactId === contact.id;

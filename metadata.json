@@ -1,6 +1,6 @@
 {
-  "name": "SafetyOS",
-  "description": "SafetyOS - Advanced personal safety platform featuring real-time location sharing, emergency SOS protocols, safety updates, and community-driven protection.",
+  "name": "SafetyAlert",
+  "description": "SafetyAlert - Advanced personal safety platform featuring real-time location sharing, emergency SOS protocols, safety updates, and community-driven protection.",
   "requestFramePermissions": [
     "camera",
     "microphone",

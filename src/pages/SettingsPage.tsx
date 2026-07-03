@@ -994,7 +994,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                     <p className="text-[9px] font-black text-neutral-300 uppercase tracking-[0.2em] ml-1">Previous Safety Tips History</p>
                     <span className="text-[8px] font-bold text-neutral-400 bg-neutral-100 px-2.5 py-0.5 rounded-full">{tipsHistory.length} Tip{tipsHistory.length > 1 ? 's' : ''} Received</span>
                   </div>
-                  <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  <div className="md:max-h-none max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                     {tipsHistory.map((hist, idx) => {
                       const tip = SAFETY_TIPS.find(t => t.id === hist.tipId);
                       if (!tip) return null;

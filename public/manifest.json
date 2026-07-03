@@ -1,11 +1,11 @@
 {
-  "name": "Safety Sentinel",
-  "short_name": "Sentinel",
+  "name": "Ai-POWERED HUMAN SAFETY ALERT",
+  "short_name": "SafetyAlert",
   "description": "Professional safety and security management application.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "theme_color": "#ef4444",
   "icons": [
     {
       "src": "/icon-192x192.png",

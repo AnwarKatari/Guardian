@@ -5,7 +5,9 @@ import {
   signInWithPopup, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  updateProfile 
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { 
   initializeFirestore, 
@@ -36,17 +38,21 @@ const cacheConfig = persistentLocalCache({
 let dbInstance;
 try {
   dbInstance = initializeFirestore(app, {
-    localCache: cacheConfig
+    localCache: cacheConfig,
+    experimentalForceLongPolling: true
   }, dbId);
 } catch (error) {
   console.warn("Failed to initialize Firestore with primary cache config, falling back...", error);
   try {
     dbInstance = initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: true }) })
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: true }) }),
+      experimentalForceLongPolling: true
     }, dbId);
   } catch (error2) {
     console.error("Failed to initialize Firestore with localCache, initializing default...", error2);
-    dbInstance = initializeFirestore(app, {}, dbId);
+    dbInstance = initializeFirestore(app, {
+      experimentalForceLongPolling: true
+    }, dbId);
   }
 }
 
@@ -54,6 +60,7 @@ export const db = dbInstance;
 
 export const storage = getStorage(app);
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 

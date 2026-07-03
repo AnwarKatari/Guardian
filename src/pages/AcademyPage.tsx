@@ -347,7 +347,7 @@ export default function AcademyPage({ setActiveTab }: { setActiveTab: (tab: stri
           authorId: user.uid,
           authorName: profile?.displayName || user.displayName || 'Guardian Operator',
           authorPhoto: (profile?.photoURL && profile.photoURL.length > 5) ? profile.photoURL : (user.photoURL || ''),
-          content: `💡 COMMUNITY SAFETY TIP: ${tipText.trim()}`,
+          content: `COMMUNITY SAFETY TIP: ${tipText.trim()}`,
           type: 'INTEL',
           likes: [],
           commentCount: 0,

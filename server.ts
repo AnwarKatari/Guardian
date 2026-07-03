@@ -63,10 +63,10 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env
 
 // Reusable Nodemailer Transporter
 const getTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "465");
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST?.replace(/^['"]|['"]$/g, '').trim();
+  const port = parseInt((process.env.SMTP_PORT || "465").replace(/^['"]|['"]$/g, '').trim());
+  const user = process.env.SMTP_USER?.replace(/^['"]|['"]$/g, '').trim();
+  const pass = process.env.SMTP_PASS?.replace(/^['"]|['"]$/g, '').trim();
 
   if (host && user && pass) {
     return nodemailer.createTransport({
@@ -558,23 +558,8 @@ async function startServer() {
           }
 
           // 2. Dispatch SMS in parallel if phone number exists and SMS is configured
-          if (resolvedPhone && hasSms) {
-            dispatchPromises.push((async () => {
-              try {
-                console.log(`[SERVER_AUTH_BG] Dispatching ultra-fast SMS OTP to ${resolvedPhone}...`);
-                const smsMsg = `Your AI-POWERED HUMAN SAFETY ALERT verification OTP is: ${otp}. Valid for 10 minutes.`;
-                const smsResult = await sendTacticalSms([resolvedPhone], smsMsg, "SafetyAlert");
-                if (smsResult.success) {
-                  console.log(`[SERVER_AUTH_BG] Fast-track OTP SMS sent successfully via ${smsResult.relayUsed} to ${resolvedPhone}`);
-                } else {
-                  console.warn(`[SERVER_AUTH_BG] Fast-track OTP SMS dispatch failed:`, smsResult.error?.message || "Unknown gateway error");
-                }
-              } catch (smsErr: any) {
-                console.error(`[SERVER_AUTH_BG_SMS_ERR] Failed sending fast-track OTP SMS:`, smsErr.message);
-              }
-            })());
-          }
-
+          /* SMS sending removed as requested */
+          
           await Promise.all(dispatchPromises);
         })().catch((bgErr: any) => {
           console.error("[SERVER_AUTH_BG_THREAD_ERR] Background thread error:", bgErr);
@@ -1084,7 +1069,7 @@ async function startServer() {
 
         if (transporter) {
           await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
+            from: `"SafetyAlert" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
             to: toEmail,
             subject: mailSubject,
             html: mailHtml
@@ -1245,4 +1230,5 @@ async function startServer() {
   return app;
 }
 
-startServer();
+const appPromise = startServer();
+export default appPromise;

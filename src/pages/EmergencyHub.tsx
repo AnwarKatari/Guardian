@@ -403,7 +403,7 @@ export default function EmergencyHub({ setActiveTab }: { setActiveTab?: (tab: st
                  <span className="text-[8px] font-bold text-neutral-300 tracking-widest uppercase italic">CONNECTED</span>
               </div>
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-[32px] p-6 h-[400px] overflow-y-auto shadow-2xl relative font-sans text-[9px] leading-relaxed custom-scrollbar text-white">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-[32px] p-6 md:h-auto md:max-h-[600px] h-[400px] overflow-y-auto shadow-2xl relative font-sans text-[9px] leading-relaxed custom-scrollbar text-white">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                  <Radio size={40} className="text-blue-500" />
               </div>

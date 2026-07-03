@@ -243,27 +243,6 @@ export default function Layout({
             </button>
           </div>
         </div>
-
-        {/* Live Diagnostics telemetry at bottom of sidebar */}
-        <div className="p-6 border-t border-neutral-100 bg-neutral-50/30 space-y-3">
-          <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-neutral-400">
-            <span>Security Status</span>
-            <span className="text-emerald-500 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              ONLINE
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[9px] text-neutral-500 font-bold italic">
-              <span>SATELLITE LINK</span>
-              <span>ACTIVE (+/- 1.4m)</span>
-            </div>
-            <div className="flex justify-between text-[9px] text-neutral-500 font-bold italic">
-              <span>SECURITY HUB</span>
-              <span>CONNECTED</span>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* 2. MAIN WORKING REGION */}
@@ -275,24 +254,18 @@ export default function Layout({
             <div>
               <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 mb-0.5">Control Terminal</h2>
               <h1 className="text-xl font-display font-black tracking-tight uppercase text-neutral-900 italic">
-                {activeTab === 'home' && "🛡️ Tactical Safety Command"}
-                {activeTab === 'map' && "🗺️ Operational Map Coverage"}
-                {activeTab === 'academy' && "🏆 Academy & Threat Prep"}
-                {activeTab === 'network' && "👥 Personal Guardian Network"}
-                {activeTab === 'messages' && "💬 Cryptographically Secure Chats"}
-                {activeTab === 'settings' && "⚙️ System Configuration"}
-                {activeTab === 'sos' && "⚠️ EMERGENCY TACTICAL RESPONSE"}
-                {activeTab === 'dashboard' && "📈 Core Security Telemetry"}
+                {activeTab === 'home' && "Tactical Safety Command"}
+                {activeTab === 'map' && "Operational Map Coverage"}
+                {activeTab === 'academy' && "Academy & Threat Prep"}
+                {activeTab === 'network' && "Personal Guardian Network"}
+                {activeTab === 'messages' && "Cryptographically Secure Chats"}
+                {activeTab === 'settings' && "System Configuration"}
+                {activeTab === 'sos' && "EMERGENCY TACTICAL RESPONSE"}
+                {activeTab === 'dashboard' && "Core Security Telemetry"}
               </h1>
             </div>
 
             <div className="flex items-center gap-4">
-              {/* GPS handshake banner */}
-              <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border border-neutral-200/60 rounded-2xl text-[9px] font-black uppercase tracking-wider text-neutral-500">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-                <span>Tokyo Ping Verified</span>
-              </div>
-
               {/* Core Telemetry Toggle */}
               <button 
                 onClick={() => setActiveTab('dashboard')}

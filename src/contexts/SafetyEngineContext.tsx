@@ -229,7 +229,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
         try {
           addLog("SAFETY_RELAY: Engaging cloud dispatch protocols...");
           // ARKESEL SENDER ID: Using pre-verified unified ID
-          const sanitizedSenderName = "SafetyOS";
+          const sanitizedSenderName = "SafetyAlert";
 
           const response = await fetch('/api/sms/dispatch', {
             method: 'POST',

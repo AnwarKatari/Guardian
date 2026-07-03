@@ -322,7 +322,7 @@ export default function DashboardPage({ setActiveTab }: { setActiveTab?: (tab: s
                 <h3 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Activity Logs</h3>
               </div>
             </div>
-            <div className="bg-neutral-50 border border-neutral-100 rounded-[32px] p-6 h-[400px] overflow-y-auto shadow-inner custom-scrollbar relative font-sans text-[10px] leading-relaxed">
+            <div className="bg-neutral-50 border border-neutral-100 rounded-[32px] p-6 md:h-auto md:max-h-[600px] h-[400px] overflow-y-auto shadow-inner custom-scrollbar relative font-sans text-[10px] leading-relaxed">
               {systemLogs.map((log, i) => (
                 <div key={i} className="flex gap-3 mb-3 opacity-60 hover:opacity-100 transition-opacity">
                    <span className="text-neutral-300 font-bold">[{i.toString().padStart(2, '0')}]</span>
