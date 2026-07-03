@@ -50,7 +50,7 @@ export default function HomePage({ setActiveTab }: { setActiveTab: (tab: string)
   }, [user]);
 
   return (
-    <div className="min-h-screen bg-white p-6 md:p-10 space-y-8 pb-32 max-w-lg md:max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto relative overflow-hidden font-sans text-neutral-900">
+    <div className="w-full space-y-8 pb-20 relative font-sans text-neutral-900">
       {/* Dynamic Background Accents */}
       <div className="absolute top-0 right-0 w-[80%] h-[40%] bg-blue-50/50 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[60%] h-[40%] bg-indigo-50/40 blur-[100px] pointer-events-none" />

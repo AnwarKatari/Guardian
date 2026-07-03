@@ -1245,4 +1245,4 @@ async function startServer() {
   return app;
 }
 
-export default startServer();
+startServer();

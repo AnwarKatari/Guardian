@@ -184,7 +184,7 @@ export default function MessagesPage({ recipientId, setActiveTab }: MessagesPage
   };
 
   return (
-    <div className="flex h-full bg-white overflow-hidden font-sans text-neutral-900 pb-16 md:pb-0">
+    <div className="flex h-full bg-white overflow-hidden font-sans text-neutral-900">
       {/* Sidebar - Conversations List */}
       <div className={cn(
         "w-full md:w-96 flex flex-col border-r border-neutral-100 bg-white pb-10 md:pb-0",
@@ -388,7 +388,7 @@ export default function MessagesPage({ recipientId, setActiveTab }: MessagesPage
             </div>
 
             {/* Input Area */}
-            <div className="p-4 pb-20 md:pb-10 border-t border-neutral-100 bg-white">
+            <div className="p-4 border-t border-neutral-100 bg-white shrink-0">
                <form onSubmit={sendMessage} className="relative group">
                   <input 
                     type="text" 

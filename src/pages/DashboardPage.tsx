@@ -37,6 +37,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { useSafety } from '../contexts/SafetyEngineContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmergencyNumbers } from '../constants/emergencyMatrix';
+import { RecentAlertsWidget, CommunitySafetyScoreWidget, ActiveTrustedContactsWidget } from '../components/DashboardWidgets';
 
 const chartData = [
   { time: '12am', level: 20 },
@@ -102,7 +103,7 @@ export default function DashboardPage({ setActiveTab }: { setActiveTab?: (tab: s
   };
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 p-4 sm:p-6 pb-32 max-w-[1400px] mx-auto font-sans relative overflow-hidden">
+    <div className="w-full text-neutral-900 pb-20 font-sans relative">
       {/* Background Ambience */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[50%] rounded-full bg-blue-50 blur-[120px]" />
@@ -168,6 +169,19 @@ export default function DashboardPage({ setActiveTab }: { setActiveTab?: (tab: s
                </div>
             </div>
           </motion.div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400">Security Control Widgets</h3>
+              <span className="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100/80">Modular Grid v2.5</span>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-6">
+              <RecentAlertsWidget firebaseIncidents={incidents} onSelectTab={setActiveTab} />
+              <CommunitySafetyScoreWidget />
+              <ActiveTrustedContactsWidget contacts={profile?.emergencyContacts || []} onSelectTab={setActiveTab} />
+            </div>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* SOS History log */}

@@ -438,7 +438,12 @@ export default function AuthLanding() {
       await signInWithGoogle();
     } catch (err: any) {
       console.warn("Google Auth handled warning:", err.message || err);
-      setError("Failed to coordinate Google Auth cluster. Try again.");
+      const errStr = (err.message || "").toLowerCase() + " " + (err.code || "").toLowerCase();
+      if (errStr.includes("unauthorized") || errStr.includes("domain") || errStr.includes("auth-domain")) {
+        setError("Authorized Domain Missing: Please add this current Vercel/custom domain to the 'Authorized Domains' list in your Firebase Console (Authentication > Settings > Authorized Domains).");
+      } else {
+        setError(`Failed to coordinate Google Auth cluster: ${err.message || "Connection refused"}. (Note: If hosting on Vercel, ensure your Vercel URL is added to your Firebase Console under Authentication > Settings > Authorized Domains).`);
+      }
     } finally {
       setLoading(false);
     }

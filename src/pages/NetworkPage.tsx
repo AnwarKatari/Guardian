@@ -472,7 +472,7 @@ export default function NetworkPage({ setActiveTab, setSelectedId }: { setActive
   };
 
   return (
-    <div className="bg-neutral-50 pb-40">
+    <div className="w-full pb-20">
       <main className="max-w-2xl mx-auto">
         {/* Header - Now Inside Main to Scroll */}
         <div className="bg-white px-6 pt-12 pb-6 border-b border-neutral-100 mb-6">

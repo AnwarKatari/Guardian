@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { InstallAppButton } from '../components/InstallAppButton';
 import { 
   User, 
   Users, 
@@ -28,7 +29,8 @@ import {
   AlertTriangle,
   Sparkles,
   Edit2,
-  Watch
+  Watch,
+  Download // added Download
 } from 'lucide-react';
 import axios from 'axios';
 import { auth, storage } from '../firebase';
@@ -457,7 +459,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const countries = Object.keys(EMERGENCY_MATRIX).sort();
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 pb-32 font-sans bg-white text-neutral-900 min-h-screen relative overflow-hidden">
+    <div className="w-full space-y-8 pb-20 relative font-sans text-neutral-900">
       {/* Background HUD Ambience */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.02)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,white,transparent)] pointer-events-none" />
 
@@ -519,16 +521,64 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
             )}
           </div>
           <div className="flex-1 space-y-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 group/name-edit">
-                <h3 className="font-display font-black text-2xl text-neutral-900 tracking-tighter leading-none uppercase italic">
-                  {profile?.displayName || user?.displayName || 'NEW USER'}
-                </h3>
-                <div className="flex items-center gap-1 px-2 py-0.5 bg-neutral-100 rounded-full text-[6px] font-black uppercase tracking-widest text-neutral-400 border border-neutral-200">
-                  <Lock size={6} />
-                  Identity Locked
-                </div>
+            <div className="space-y-2 relative group/name-edit">
+              <div className="flex items-center justify-between">
+                <p className="text-[8px] font-black text-neutral-300 uppercase tracking-[0.3em] italic">Tactical Nickname / Full Name</p>
+                {isEditingName ? (
+                  <button 
+                    onClick={handleUpdateName}
+                    className="text-[9px] font-black text-white uppercase tracking-tight px-3 py-1.5 bg-emerald-600 rounded-full hover:bg-emerald-700 transition-all"
+                  >
+                    Save Changes
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      setDisplayName(profile?.displayName || user?.displayName || '');
+                      setIsEditingName(true);
+                    }}
+                    className="text-[10px] font-black text-blue-700 uppercase tracking-tight px-3 py-1.5 bg-blue-100/50 rounded-full hover:bg-blue-200 transition-all flex items-center gap-1.5 border border-blue-200"
+                  >
+                    <Edit2 size={10} />
+                    Edit Name
+                  </button>
+                )}
               </div>
+              
+              {isEditingName ? (
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="flex-1 bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-bold text-neutral-800 outline-none focus:border-blue-500 italic uppercase"
+                    placeholder="Enter display name..."
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h3 
+                    onClick={() => {
+                      setDisplayName(profile?.displayName || user?.displayName || '');
+                      setIsEditingName(true);
+                    }}
+                    className="font-display font-black text-2xl text-neutral-900 tracking-tighter leading-none uppercase italic cursor-pointer hover:text-blue-600 transition-colors"
+                  >
+                    {profile?.displayName || user?.displayName || 'NEW USER'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setDisplayName(profile?.displayName || user?.displayName || '');
+                      setIsEditingName(true);
+                    }}
+                    className="p-1 rounded-md text-neutral-400 hover:text-blue-600 hover:bg-neutral-50 transition-colors"
+                    title="Edit Name"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                </div>
+              )}
               <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest italic opacity-80">{user?.email}</p>
             </div>
 
@@ -657,6 +707,9 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
         </div>
 
         <div className="bg-white border border-neutral-100 rounded-[40px] overflow-hidden divide-y divide-neutral-50 shadow-2xl shadow-blue-500/5 transition-all">
+          <div className="p-6">
+            <InstallAppButton />
+          </div>
           {/* SOS Hold Duration Configuration */}
           <div className="p-6 space-y-4 hover:bg-neutral-50 transition-colors group">
             <div className="flex items-center gap-5">

@@ -172,187 +172,296 @@ export default function Layout({
   const isDarkPage = false;
 
   return (
-    <div className={cn(
-      "min-h-screen w-screen flex items-center justify-center transition-colors duration-500 overflow-hidden relative",
-      isDarkPage ? "bg-[#050505]" : "bg-gradient-to-br from-neutral-100 via-neutral-50 to-blue-50/20"
-    )}>
+    <div className="min-h-screen w-screen flex items-center justify-center transition-colors duration-500 overflow-hidden relative font-sans text-neutral-900 bg-neutral-100/60">
       {/* Premium ambient decorative glowing blur circles on laptop/desktop to elevate visual craft */}
-      <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/[0.04] blur-[120px] pointer-events-none rounded-full" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/[0.04] blur-[120px] pointer-events-none rounded-full" />
-      <div className="absolute top-[30%] left-[20%] w-[40%] h-[40%] bg-purple-500/[0.02] blur-[100px] pointer-events-none rounded-full" />
+      <div className="absolute top-[-10%] right-[-10%] w-[35%] h-[35%] bg-blue-500/[0.03] blur-[120px] pointer-events-none rounded-full" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[35%] h-[35%] bg-indigo-500/[0.03] blur-[120px] pointer-events-none rounded-full" />
 
-      {/* Main smartphone frame on desktop, full-screen on mobile devices */}
-      <div className={cn(
-        "w-full h-screen md:h-[92vh] md:max-w-[480px] md:my-[4vh] md:rounded-[40px] md:border md:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.12)] flex flex-col relative overflow-hidden transition-all duration-500 z-10",
-        isDarkPage 
-          ? "bg-[#050505] md:border-white/5 md:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7)]" 
-          : "bg-white md:border-neutral-200/70 md:shadow-[0_24px_50px_-10px_rgba(0,0,0,0.08)]"
-      )}>
-        {/* Main Wrapper */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-          {/* Header */}
-          <header className={cn(
-            "px-6 py-4 backdrop-blur-3xl border-b flex items-center justify-between sticky top-0 z-20 transition-all duration-700",
-            isDarkPage 
-              ? "bg-[#050505]/60 border-white/5 text-white" 
-              : "bg-white/70 border-neutral-200/50 text-neutral-900"
-          )}>
-            <div 
-              onClick={() => setActiveTab('home')}
-              className="flex items-center gap-3 cursor-pointer group"
-            >
-              <div className="p-2 rounded-xl bg-blue-600/10 group-hover:bg-blue-600/20 transition-all duration-500 group-hover:rotate-[360deg]">
-                <GuardianLogo size={22} pulsing={false} />
+      {/* Main Centered Panel with Max-Width constraint on Desktop to prevent stretching */}
+      <div className="w-full h-screen md:h-[96vh] md:max-w-[1440px] lg:max-w-[1600px] xl:max-w-[1720px] md:my-[2vh] md:rounded-[32px] md:border md:border-neutral-200/60 md:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.06)] flex relative overflow-hidden transition-all duration-500 z-10 bg-white">
+        
+        {/* 1. DESKTOP PERMANENT LEFT SIDEBAR */}
+        <aside className="hidden md:flex flex-col w-80 bg-white border-r border-neutral-200/60 shrink-0 h-full relative z-30 shadow-[4px_0_24px_rgba(0,0,0,0.01)]">
+        {/* Brand Header */}
+        <div className="p-6 border-b border-neutral-100 flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-blue-600/10">
+            <GuardianLogo size={24} pulsing={false} />
+          </div>
+          <div>
+            <h1 className="font-display font-black text-lg tracking-tighter italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 leading-none">
+              Ai-POWERED
+            </h1>
+            <span className="text-[9px] font-black tracking-widest block font-sans not-italic text-neutral-400 mt-0.5">HUMAN SAFETY ALERT</span>
+          </div>
+        </div>
+
+        {/* User Profile Summary */}
+        <div className="p-6 border-b border-neutral-100 bg-neutral-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl p-0.5 border-2 border-white shadow-md overflow-hidden bg-neutral-200">
+              <img 
+                src={profile?.photoURL || user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
+                alt="Profile" 
+                className="w-full h-full object-cover rounded-[14px]"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-black uppercase tracking-tight truncate text-neutral-900">{profile?.displayName || user.displayName || 'Security Agent'}</p>
+                <div className="w-2 h-2 bg-emerald-500 rounded-full border border-white shadow-sm shrink-0" />
               </div>
-              <h1 className="font-display font-black text-2xl tracking-tighter italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 leading-none">
-                Ai-POWERED<br/>
-                <span className="text-xs tracking-widest block font-sans not-italic text-neutral-500 mt-1">HUMAN SAFETY ALERT</span>
+              <p className="text-[10px] text-neutral-400 font-bold truncate">{user.email}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Navigation */}
+        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
+          <SidebarNavItem icon={Home} label="Home Dashboard" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
+          <SidebarNavItem icon={MapIcon} label="Tactical Map" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
+          <SidebarNavItem icon={Trophy} label="Safety Academy" active={activeTab === 'academy'} onClick={() => setActiveTab('academy')} />
+          <SidebarNavItem icon={Users} label="Emergency Network" active={activeTab === 'network'} onClick={() => setActiveTab('network')} badgeCount={pendingConnectionCount} />
+          <SidebarNavItem icon={MessageSquare} label="Encrypted Chats" active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} badgeCount={unreadMsgCount} />
+          <SidebarNavItem icon={Settings} label="System Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+          
+          <div className="pt-4 border-t border-neutral-100 mt-4">
+            {/* Elegant Desktop SOS button */}
+            <button
+              onClick={() => setActiveTab('sos')}
+              className={cn(
+                "w-full py-4 px-5 rounded-2xl transition-all duration-300 flex items-center justify-between border-2 font-display uppercase tracking-wider italic font-black text-xs relative overflow-hidden group shadow-lg shadow-red-500/10",
+                activeTab === 'sos' 
+                  ? "bg-red-600 text-white border-red-600 shadow-red-600/30" 
+                  : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <AlertTriangle size={18} className={activeTab === 'sos' ? "text-white" : "text-red-600"} />
+                <span className="pt-0.5">Tactical SOS</span>
+              </div>
+              <span className="text-[9px] font-sans px-2 py-0.5 rounded-full bg-red-600/10 text-red-600 group-hover:bg-red-600/20">LIVE</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Live Diagnostics telemetry at bottom of sidebar */}
+        <div className="p-6 border-t border-neutral-100 bg-neutral-50/30 space-y-3">
+          <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-neutral-400">
+            <span>Security Status</span>
+            <span className="text-emerald-500 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              ONLINE
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-[9px] text-neutral-500 font-bold italic">
+              <span>SATELLITE LINK</span>
+              <span>ACTIVE (+/- 1.4m)</span>
+            </div>
+            <div className="flex justify-between text-[9px] text-neutral-500 font-bold italic">
+              <span>SECURITY HUB</span>
+              <span>CONNECTED</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* 2. MAIN WORKING REGION */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative z-10">
+        
+        {/* DESKTOP EXCLUSIVE TOP BAR */}
+        <header className="hidden md:flex h-20 bg-white border-b border-neutral-200/50 px-8 items-center justify-between shrink-0 sticky top-0 z-20">
+          <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
+            <div>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 mb-0.5">Control Terminal</h2>
+              <h1 className="text-xl font-display font-black tracking-tight uppercase text-neutral-900 italic">
+                {activeTab === 'home' && "🛡️ Tactical Safety Command"}
+                {activeTab === 'map' && "🗺️ Operational Map Coverage"}
+                {activeTab === 'academy' && "🏆 Academy & Threat Prep"}
+                {activeTab === 'network' && "👥 Personal Guardian Network"}
+                {activeTab === 'messages' && "💬 Cryptographically Secure Chats"}
+                {activeTab === 'settings' && "⚙️ System Configuration"}
+                {activeTab === 'sos' && "⚠️ EMERGENCY TACTICAL RESPONSE"}
+                {activeTab === 'dashboard' && "📈 Core Security Telemetry"}
               </h1>
             </div>
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-4">
+              {/* GPS handshake banner */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border border-neutral-200/60 rounded-2xl text-[9px] font-black uppercase tracking-wider text-neutral-500">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                <span>Tokyo Ping Verified</span>
+              </div>
+
+              {/* Core Telemetry Toggle */}
               <button 
                 onClick={() => setActiveTab('dashboard')}
                 className={cn(
-                  "p-2.5 rounded-[18px] transition-all relative overflow-hidden group",
+                  "p-3 rounded-2xl transition-all relative overflow-hidden group border",
                   activeTab === 'dashboard' 
-                    ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20" 
-                    : isDarkPage ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:bg-neutral-100"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-500/25" 
+                    : "text-neutral-500 bg-white border-neutral-200/60 hover:bg-neutral-50"
                 )}
               >
-                <Activity size={20} />
+                <Activity size={18} />
               </button>
+
+              {/* Notification Bell */}
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
                 className={cn(
-                  "p-2.5 rounded-[18px] transition-all relative",
-                  isDarkPage ? "text-neutral-400 hover:text-white hover:bg-white/5" : "text-neutral-500 hover:bg-neutral-100"
+                  "p-3 rounded-2xl transition-all border relative",
+                  showNotifications 
+                    ? "bg-neutral-100 border-neutral-300 text-neutral-900" 
+                    : "text-neutral-500 bg-white border-neutral-200/60 hover:bg-neutral-50"
                 )}
               >
-                <Bell size={20} />
+                <Bell size={18} />
                 {unreadCount > 0 && (
-                  <div className="absolute top-2 right-2 min-w-[16px] h-[16px] px-1 bg-red-600 rounded-full border-2 border-transparent flex items-center justify-center shadow-[0_0_10px_rgba(220,38,38,0.5)]">
-                    <span className="text-[9px] font-black text-white">{unreadCount}</span>
+                  <div className="absolute top-1.5 right-1.5 min-w-[16px] h-[16px] px-1 bg-red-600 rounded-full border-2 border-white flex items-center justify-center shadow-lg shadow-red-500/30">
+                    <span className="text-[8px] font-black text-white">{unreadCount}</span>
                   </div>
                 )}
               </button>
-
-              {/* Profile Quick Toggle - Available on all screens now that left sidebar is removed */}
-              <div 
-                onClick={() => setActiveTab('settings')}
-                className={cn(
-                  "w-10 h-10 rounded-[18px] p-0.5 overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 active:scale-95",
-                  isDarkPage ? "border-white/10 bg-white/5" : "border-white bg-neutral-200 shadow-sm"
-                )}
-              >
-                <img 
-                  src={profile?.photoURL || user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover rounded-[16px]"
-                />
-              </div>
             </div>
+          </div>
+        </header>
 
-            {/* Notifications Panel */}
-            <AnimatePresence>
-              {showNotifications && (
-                <>
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setShowNotifications(false)}
-                    className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-                  />
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className={cn(
-                      "absolute right-6 top-20 w-80 max-h-[480px] overflow-hidden border rounded-[40px] shadow-[0_32px_64px_rgba(0,0,0,0.5)] z-50 p-2 backdrop-blur-2xl transition-colors duration-500",
-                      isDarkPage ? "bg-[#0d0d0d]/90 border-white/10" : "bg-white/95 border-neutral-100"
-                    )}
-                  >
-                    <div className="p-6 flex items-center justify-between border-b border-white/5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Security Feed</h3>
-                      </div>
-                      <button 
-                        onClick={clearAll}
-                        className="text-[10px] font-black text-red-500 hover:bg-red-500/10 px-3 py-1 rounded-full uppercase tracking-widest transition-colors"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                    <div className="overflow-y-auto max-h-[350px] custom-scrollbar">
-                      {notifications.length > 0 ? (
-                        notifications.map(notif => (
-                          <div 
-                            key={notif.id}
-                            onClick={() => {
-                               markAsRead(notif.id);
-                               setShowNotifications(false);
-                            }}
-                            className={cn(
-                              "p-4 border-b last:border-0 transition-all cursor-pointer group relative overflow-hidden",
-                              isDarkPage ? "border-white/5 hover:bg-white/5" : "border-neutral-50 hover:bg-neutral-50",
-                              !notif.read && (isDarkPage ? "bg-blue-600/10" : "bg-blue-50")
-                            )}
-                          >
-                            <div className="flex gap-4">
-                              <div className={cn(
-                                "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-110",
-                                notif.type === 'alert' 
-                                   ? "bg-red-500/10 text-red-500 border-red-500/20" 
-                                   : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                              )}>
-                                {notif.type === 'alert' ? <AlertTriangle size={16} /> : <Bell size={16} />}
-                              </div>
-                              <div className="space-y-1">
-                                <p className={cn(
-                                  "text-xs font-black uppercase italic tracking-tight",
-                                  isDarkPage ? "text-white" : "text-neutral-900"
-                                )}>{notif.title}</p>
-                                <p className="text-[10px] text-neutral-500 font-bold leading-relaxed">{notif.message}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-12 text-center space-y-3">
-                          <ShieldAlert className="mx-auto text-neutral-800" size={32} />
-                          <p className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.3em]">No Notifications</p>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                </>
+        {/* MOBILE EXCLUSIVE HEADER */}
+        <header className="md:hidden px-6 py-4 backdrop-blur-3xl border-b flex items-center justify-between sticky top-0 z-20 transition-all duration-700 bg-white/70 border-neutral-200/50 text-neutral-900">
+          <div 
+            onClick={() => setActiveTab('home')}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <div className="p-2 rounded-xl bg-blue-600/10 group-hover:bg-blue-600/20 transition-all duration-500 group-hover:rotate-[360deg]">
+              <GuardianLogo size={22} pulsing={false} />
+            </div>
+            <h1 className="font-display font-black text-2xl tracking-tighter italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 leading-none">
+              Ai-POWERED<br/>
+              <span className="text-xs tracking-widest block font-sans not-italic text-neutral-500 mt-1">HUMAN SAFETY ALERT</span>
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setActiveTab('dashboard')}
+              className={cn(
+                "p-2.5 rounded-[18px] transition-all relative overflow-hidden group",
+                activeTab === 'dashboard' 
+                  ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20" 
+                  : "text-neutral-500 hover:bg-neutral-100"
               )}
-            </AnimatePresence>
-          </header>
+            >
+              <Activity size={20} />
+            </button>
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2.5 rounded-[18px] transition-all relative text-neutral-500 hover:bg-neutral-100"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <div className="absolute top-2 right-2 min-w-[16px] h-[16px] px-1 bg-red-600 rounded-full border-2 border-transparent flex items-center justify-center shadow-[0_0_10px_rgba(220,38,38,0.5)]">
+                  <span className="text-[9px] font-black text-white">{unreadCount}</span>
+                </div>
+              )}
+            </button>
 
-          {/* Main Content */}
-          <main className={cn(
-            "flex-1 relative custom-scrollbar",
-            (activeTab === 'messages' || activeTab === 'map') ? "overflow-hidden h-full flex flex-col" : "overflow-y-auto pb-28"
-          )}>
-            <div className={cn(
-              "w-full mx-auto relative",
-              activeTab === 'map' ? "h-full w-full flex-1 flex flex-col" : "min-h-full max-w-full px-0 sm:px-4"
-            )}>
-              {children}
+            <div 
+              onClick={() => setActiveTab('settings')}
+              className="w-10 h-10 rounded-[18px] p-0.5 overflow-hidden border-2 cursor-pointer border-white bg-neutral-200 shadow-sm"
+            >
+              <img 
+                src={profile?.photoURL || user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
+                alt="Profile" 
+                className="w-full h-full object-cover rounded-[16px]"
+              />
             </div>
-          </main>
-        </div>
+          </div>
+        </header>
 
-        {/* Bottom Navigation */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 z-30 pointer-events-none">
-          <nav className={cn(
-            "max-w-md mx-auto border-2 backdrop-blur-3xl rounded-[32px] sm:rounded-[44px] p-1.5 sm:p-2 flex items-center justify-between sm:justify-around gap-1 sm:gap-2 pointer-events-auto transition-all duration-500",
-            isDarkPage 
-              ? "bg-black/95 border-white/20 shadow-[0_40px_80px_rgba(0,0,0,1)]" 
-              : "bg-white/95 border-neutral-200/50 shadow-[0_32px_64px_rgba(0,0,0,0.08)]"
+        {/* Notifications Panel (Absolute overlay) */}
+        <AnimatePresence>
+          {showNotifications && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowNotifications(false)}
+                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute right-6 top-20 w-80 max-h-[480px] overflow-hidden border border-neutral-100 rounded-[40px] shadow-[0_32px_64px_rgba(0,0,0,0.12)] z-50 p-2 backdrop-blur-2xl bg-white/95"
+              >
+                <div className="p-6 flex items-center justify-between border-b border-neutral-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Security Feed</h3>
+                  </div>
+                  <button 
+                    onClick={clearAll}
+                    className="text-[10px] font-black text-red-500 hover:bg-red-500/10 px-3 py-1 rounded-full uppercase tracking-widest transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div className="overflow-y-auto max-h-[350px] custom-scrollbar">
+                  {notifications.length > 0 ? (
+                    notifications.map(notif => (
+                      <div 
+                        key={notif.id}
+                        onClick={() => {
+                           markAsRead(notif.id);
+                           setShowNotifications(false);
+                        }}
+                        className="p-4 border-b last:border-0 transition-all cursor-pointer group relative overflow-hidden border-neutral-50 hover:bg-neutral-50"
+                      >
+                        <div className="flex gap-4">
+                          <div className={cn(
+                            "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-110",
+                            notif.type === 'alert' 
+                               ? "bg-red-500/10 text-red-500 border-red-500/20" 
+                               : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                          )}>
+                            {notif.type === 'alert' ? <AlertTriangle size={16} /> : <Bell size={16} />}
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-black uppercase italic tracking-tight text-neutral-900">{notif.title}</p>
+                            <p className="text-[10px] text-neutral-500 font-bold leading-relaxed">{notif.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-12 text-center space-y-3">
+                      <ShieldAlert className="mx-auto text-neutral-800" size={32} />
+                      <p className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.3em]">No Notifications</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* 3. WORKING WORKSPACE VIEWPORT */}
+        <main className={cn(
+          "flex-1 relative custom-scrollbar overflow-y-auto pb-12",
+          (activeTab === 'messages' || activeTab === 'map') && "overflow-hidden h-full flex flex-col pb-0"
+        )}>
+          <div className={cn(
+            "w-full mx-auto relative p-4 sm:p-6 md:p-8",
+            (activeTab === 'map' || activeTab === 'messages') ? "h-full w-full flex-1 flex flex-col p-0" : "min-h-full max-w-7xl"
           )}>
+            {children}
+          </div>
+        </main>
+
+        {/* MOBILE EXCLUSIVE BOTTOM NAV (NEVER SHOWN ON DESKTOP) */}
+        <div className="md:hidden p-4 sm:p-5 border-t shrink-0 z-30 bg-neutral-50 border-neutral-200/60">
+          <nav className="max-w-md mx-auto border border-neutral-200/50 backdrop-blur-3xl rounded-[32px] sm:rounded-[44px] p-1.5 sm:p-2 flex items-center justify-between sm:justify-around gap-1 sm:gap-2 bg-white/95 shadow-[0_32px_64px_rgba(0,0,0,0.08)]">
             <NavItem icon={Home} label="Home" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
             <NavItem icon={MapIcon} label="Map" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
             <NavItem icon={Trophy} label="Academy" active={activeTab === 'academy'} onClick={() => setActiveTab('academy')} />
@@ -374,19 +483,9 @@ export default function Layout({
               <motion.button
                 whileHover={{ scale: 1.15, y: -5 }}
                 whileTap={{ scale: 0.9, rotate: -5 }}
-                onClick={() => {
-                  if ('vibrate' in navigator) {
-                    navigator.vibrate([100, 50, 100]);
-                  }
-                  setActiveTab('sos');
-                }}
-                className={cn(
-                  "w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] sm:rounded-[24px] flex items-center justify-center transition-all border-4 relative overflow-hidden group",
-                  isDarkPage ? "border-[#050505] shadow-[0_20px_50px_rgba(220,38,38,0.6)]" : "border-white shadow-[0_16px_40px_rgba(220,38,38,0.3)]",
-                  "bg-red-600 text-white"
-                )}
+                onClick={() => setActiveTab('sos')}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] sm:rounded-[24px] flex items-center justify-center transition-all border-4 relative overflow-hidden group border-white shadow-[0_16px_40px_rgba(220,38,38,0.3)] bg-red-600 text-white"
               >
-                {/* Internal Diagnostic/Advanced layers */}
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_white_0%,_transparent_70%)] opacity-10 animate-pulse" />
                 <motion.div 
                   animate={{ rotate: 360 }}
@@ -403,16 +502,10 @@ export default function Layout({
                   <span className="text-[7px] sm:text-[8px] font-black tracking-[0.2em] uppercase italic opacity-80">SOS</span>
                 </div>
 
-                {/* Advanced Ripple Layers */}
                 <motion.div 
                   animate={{ scale: [1, 2], opacity: [0.5, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
                   className="absolute inset-0 rounded-full bg-red-400"
-                />
-                <motion.div 
-                  animate={{ scale: [1, 2.5], opacity: [0.3, 0] }}
-                  transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
-                  className="absolute inset-0 rounded-full bg-red-300"
                 />
               </motion.button>
             </div>
@@ -422,8 +515,10 @@ export default function Layout({
             <NavItem icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
           </nav>
         </div>
+
       </div>
     </div>
+  </div>
   );
 }
 
