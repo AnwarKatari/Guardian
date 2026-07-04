@@ -104,8 +104,16 @@ export default function AuthLanding() {
   const [otpStage, setOtpStage] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [otpCountdown, setOtpCountdown] = useState(0);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [otpStatusMessage, setOtpStatusMessage] = useState<string | null>(null);
+  
+  // Toast notifications state
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([]);
+  const addToast = (message: string, type: 'success' | 'error') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  };
 
   useEffect(() => {
     let timer: any;
@@ -276,12 +284,11 @@ export default function AuthLanding() {
         setOtpStage(true);
         setOtpCountdown(60);
         setOtpValue('');
-        setOtpError(null);
         
         if (data.simulated && data.otp) {
-          setOtpStatusMessage(`A secure verification code has been dispatched to your phone number. (Sandbox Code: ${data.otp})`);
+          addToast(`Verification code: ${data.otp}`, 'success');
         } else {
-          setOtpStatusMessage(data.message || `A secure verification code has been dispatched to your phone number via SMS.`);
+          addToast(data.message || `Verification code sent via SMS.`, 'success');
         }
       } else {
         throw new Error(data.message || "Failed to dispatch verification OTP.");
@@ -307,7 +314,6 @@ export default function AuthLanding() {
     if (loading || otpValue.length !== 6) return;
 
     setLoading(true);
-    setOtpError(null);
 
     try {
       // 1. Verify OTP with Server API
@@ -379,7 +385,6 @@ export default function AuthLanding() {
       // Clean up states
       setOtpStage(false);
       setOtpValue('');
-      setOtpStatusMessage(null);
     } catch (err: any) {
       console.warn("OTP Verification & Authentication handled warning:", err.message || err);
       let msg = err.message.replace('Firebase: ', '');
@@ -388,7 +393,7 @@ export default function AuthLanding() {
       } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         msg = "Invalid credentials. Verify your details and retry.";
       }
-      setOtpError(msg);
+      addToast(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -396,8 +401,6 @@ export default function AuthLanding() {
 
   const handleResendOtp = async () => {
     setLoading(true);
-    setOtpError(null);
-    setOtpStatusMessage(null);
 
     try {
       const response = await fetch("/api/auth/send-otp", {
@@ -416,15 +419,15 @@ export default function AuthLanding() {
         setOtpCountdown(60);
         setOtpValue('');
         if (data.simulated && data.otp) {
-          setOtpStatusMessage(`A fresh verification code has been dispatched to your phone number. (Sandbox Code: ${data.otp})`);
+          addToast(`Verification code: ${data.otp}`, 'success');
         } else {
-          setOtpStatusMessage(data.message || `A fresh verification code has been dispatched to your phone number via SMS.`);
+          addToast(data.message || `Verification code sent via SMS.`, 'success');
         }
       } else {
         throw new Error(data.message || "Failed to dispatch verification OTP.");
       }
     } catch (err: any) {
-      setOtpError(err.message || "Failed to resend verification OTP.");
+      addToast(err.message || "Failed to resend verification OTP.", 'error');
     } finally {
       setLoading(false);
     }
@@ -623,17 +626,7 @@ export default function AuthLanding() {
               /* OTP Verification Form */
               <form onSubmit={handleVerifyOtpAndSignUp} className="space-y-6">
                 
-                {otpStatusMessage && (
-                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl text-blue-700 text-xs italic font-bold">
-                    {otpStatusMessage}
-                  </div>
-                )}
-
-                {otpError && (
-                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs italic font-bold">
-                    {otpError}
-                  </div>
-                )}
+                {/* OTP Messages removed, toast system used instead */}
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1 block text-center">
@@ -684,8 +677,6 @@ export default function AuthLanding() {
                         setOtpStage(false);
                         setOtpValue('');
                         setError(null);
-                        setOtpError(null);
-                        setOtpStatusMessage(null);
                       }}
                       className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-600 italic"
                     >
@@ -1079,6 +1070,25 @@ export default function AuthLanding() {
 
       </div>
 
+      {/* Toast Container */}
+      <div className="fixed bottom-4 right-4 z-50 space-y-2">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className={cn(
+                "p-4 rounded-xl shadow-lg text-xs font-bold italic",
+                toast.type === 'success' ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-red-50 text-red-700 border border-red-100"
+              )}
+            >
+              {toast.message}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

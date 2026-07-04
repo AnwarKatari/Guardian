@@ -8,6 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
+import { SMSAuthService } from "./src/lib/SMSAuthService";
 import fs from "fs";
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
@@ -579,10 +580,9 @@ async function startServer() {
           }
 
           if (resolvedPhone) {
-            const smsMessage = `Your AI-POWERED HUMAN SAFETY ALERT verification code is: ${otp}. It expires in 10 minutes.`;
-            const smsResult = await sendTacticalSms([resolvedPhone], smsMessage, "SafetyAlert");
+            const smsResult = await SMSAuthService.sendVerificationCode(resolvedPhone, otp);
             if (smsResult.success) {
-              console.log(`[SERVER_AUTH_BG] Verification OTP SMS sent via ${smsResult.relayUsed} to ${resolvedPhone}`);
+              console.log(`[SERVER_AUTH_BG] Verification OTP SMS sent to ${resolvedPhone}`);
             } else {
               console.error("[SERVER_AUTH_BG_SMS_ERR] Failed to send real API SMS:", smsResult.error);
             }

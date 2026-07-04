@@ -345,16 +345,8 @@ export default function Onboarding() {
                       <img src={formData.photoURL} alt="Preview" className="w-full h-full object-cover" />
                     )}
                     {isUploading && (
-                      <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm p-4">
-                        <div className="w-4/5 h-1.5 bg-neutral-100 rounded-full overflow-hidden relative mb-2">
-                          <motion.div 
-                            initial={{ width: "0%" }}
-                            animate={{ width: "100%" }}
-                            transition={{ duration: 5, ease: "linear" }}
-                            className="h-full bg-blue-600 rounded-full"
-                          />
-                        </div>
-                        <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest text-center italic">{uploadStatus}</span>
+                      <div className="absolute inset-x-0 bottom-0 bg-blue-600/90 text-white text-[8px] font-black uppercase tracking-widest text-center py-1 truncate px-2">
+                        {uploadStatus}
                       </div>
                     )}
                     {!isUploading && !formData.photoURL && (
