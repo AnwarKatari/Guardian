@@ -3,6 +3,7 @@ import { doc, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/fi
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { LocationPrePromptModal } from '../components/LocationPrePromptModal';
 
 interface LocationContextType {
   location: GeolocationCoordinates | null;
@@ -16,8 +17,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const { user, profile } = useAuth();
   const lastSavedRef = useRef<{ lat: number, lng: number, time: number } | null>(null);
+  
+  const [showModal, setShowModal] = useState(false);
+  const [isAccepted, setIsAccepted] = useState(() => localStorage.getItem('locationAccepted') === 'true');
 
   useEffect(() => {
+    if (!isAccepted) {
+      setShowModal(true);
+      return;
+    }
+
     if (!("geolocation" in navigator)) {
       setError("Geolocation is not supported by your browser");
       return;
@@ -86,11 +95,22 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [user, profile?.isSharingLocation]);
+  }, [isAccepted, user, profile?.isSharingLocation]);
 
   return (
     <LocationContext.Provider value={{ location, error }}>
       {children}
+      <LocationPrePromptModal
+        isOpen={showModal}
+        onAllow={() => {
+          localStorage.setItem('locationAccepted', 'true');
+          setIsAccepted(true);
+          setShowModal(false);
+        }}
+        onDeny={() => {
+          setShowModal(false);
+        }}
+      />
     </LocationContext.Provider>
   );
 }
