@@ -354,6 +354,36 @@ export default function EmergencyHub({ setActiveTab }: { setActiveTab?: (tab: st
         </div>
 
         <aside className="lg:col-span-4 space-y-6">
+          {/* Crimson Broadcast Trigger Module */}
+          <section className="p-6 bg-gradient-to-br from-red-600 to-red-700 text-white rounded-[32px] space-y-4 shadow-xl shadow-red-500/20 relative overflow-hidden group border border-red-500/30">
+             <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,_rgba(255,255,255,0.15)_0%,_transparent_75%)] pointer-events-none" />
+             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+             <div className="absolute -bottom-10 -right-10 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
+               <ShieldAlert size={140} className="text-white" />
+             </div>
+             
+             <div className="flex items-center gap-3 relative z-10">
+                <div className="p-3 bg-white/20 rounded-xl animate-pulse">
+                   <Signal size={20} className="text-white" />
+                </div>
+                <div>
+                   <p className="text-[8px] font-black uppercase tracking-widest opacity-80 leading-none">CRITICAL BROADCAST</p>
+                   <h4 className="font-black text-lg italic tracking-tight uppercase leading-none mt-1.5">Broadcast SOS</h4>
+                </div>
+             </div>
+             
+             <p className="text-[10px] font-bold text-red-100 leading-relaxed italic relative z-10">
+                Instantly transmit a priority distress signal to your entire emergency circle.
+             </p>
+             
+             <button 
+               onClick={() => setIsConfirmingSOS(true)}
+               className="w-full py-4 bg-white text-red-600 hover:bg-red-50 active:scale-95 transition-all shadow-lg rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] relative z-10 italic border border-white/20 cursor-pointer"
+             >
+               SEND SOS SIGNAL
+             </button>
+          </section>
+
           {/* Safety Readiness Profiles */}
           <section className="bg-white border border-neutral-200 rounded-[32px] p-6 shadow-xl shadow-blue-500/5 space-y-5">
              <div className="flex items-center justify-between">
@@ -485,29 +515,6 @@ export default function EmergencyHub({ setActiveTab }: { setActiveTab?: (tab: st
                   </div>
                 )}
              </div>
-          </section>
-
-          {/* Network Broadcast Module */}
-          <section className="p-6 bg-blue-600 text-white rounded-[32px] space-y-4 shadow-xl shadow-blue-500/20 relative overflow-hidden group">
-             <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[50%] rounded-full bg-white/10 blur-3xl" />
-             <div className="flex items-center gap-3 relative z-10">
-                <div className="p-3 bg-white/20 rounded-xl">
-                   <Signal size={20} />
-                </div>
-                <div>
-                   <p className="text-[8px] font-black uppercase tracking-widest opacity-80 leading-none">Network Status</p>
-                   <h4 className="font-black text-lg italic tracking-tight uppercase leading-none mt-1">Broadcast SOS</h4>
-                </div>
-             </div>
-             <p className="text-[10px] font-bold text-blue-100 leading-relaxed italic relative z-10">
-                Initiate a high-priority signal to all users in your immediate emergency circle.
-             </p>
-             <button 
-               onClick={() => setIsConfirmingSOS(true)}
-               className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-50 active:scale-95 transition-all shadow-lg relative z-10 italic border border-white/20"
-             >
-               SEND SOS SIGNAL
-             </button>
           </section>
         </aside>
       </div>

@@ -23,6 +23,7 @@ import { collection, query, limit, orderBy, onSnapshot, getDocs, addDoc, serverT
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { triggerHaptic } from '../lib/haptics';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
@@ -280,9 +281,7 @@ export default function AcademyPage({ setActiveTab }: { setActiveTab: (tab: stri
   };
 
   const playHaptic = () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate([100, 50, 200]);
-    }
+    triggerHaptic([100, 50, 200]);
   };
 
   // Claim points reward for a completed challenge

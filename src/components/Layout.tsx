@@ -28,6 +28,9 @@ import AuthLanding from '../pages/AuthLanding';
 import Onboarding from '../pages/Onboarding';
 
 import { GuardianLogo } from './GuardianLogo';
+import { useSafety } from '../contexts/SafetyEngineContext';
+import SOSConfirmationModal from './SOSConfirmationModal';
+import { triggerHaptic } from '../lib/haptics';
 
 interface NavItemProps {
   icon: any;
@@ -107,9 +110,25 @@ export default function Layout({
 }) {
   const { user, profile, loading, isLocalMode } = useAuth();
   const { notifications, unreadCount, markAsRead, clearAll } = useNotifications();
+  const { triggerSOS, addLog } = useSafety();
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingConnectionCount, setPendingConnectionCount] = useState(0);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [isConfirmingSOS, setIsConfirmingSOS] = useState(false);
+
+  const handleBroadcast = async () => {
+    setIsConfirmingSOS(false);
+    addLog("System: Initializing emergency broadcast from Desktop Tactical Control...");
+    // Strong alerting haptic pattern
+    triggerHaptic([300, 80, 300, 80, 500, 80, 800]);
+    const success = await triggerSOS();
+    if (!success) {
+      alert("Error: Emergency protocol could not be established. Please check your emergency circle settings.");
+      setActiveTab('settings');
+    } else {
+      setActiveTab('sos');
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -223,25 +242,31 @@ export default function Layout({
           <SidebarNavItem icon={Users} label="Emergency Network" active={activeTab === 'network'} onClick={() => setActiveTab('network')} badgeCount={pendingConnectionCount} />
           <SidebarNavItem icon={MessageSquare} label="Encrypted Chats" active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} badgeCount={unreadMsgCount} />
           <SidebarNavItem icon={Settings} label="System Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
-          
-          <div className="pt-4 border-t border-neutral-100 mt-4">
-            {/* Elegant Desktop SOS button */}
-            <button
-              onClick={() => setActiveTab('sos')}
-              className={cn(
-                "w-full py-4 px-5 rounded-2xl transition-all duration-300 flex items-center justify-between border-2 font-display uppercase tracking-wider italic font-black text-xs relative overflow-hidden group shadow-lg shadow-red-500/10",
-                activeTab === 'sos' 
-                  ? "bg-red-600 text-white border-red-600 shadow-red-600/30" 
-                  : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <AlertTriangle size={18} className={activeTab === 'sos' ? "text-white" : "text-red-600"} />
-                <span className="pt-0.5">Tactical SOS</span>
-              </div>
-              <span className="text-[9px] font-sans px-2 py-0.5 rounded-full bg-red-600/10 text-red-600 group-hover:bg-red-600/20">LIVE</span>
-            </button>
-          </div>
+        </div>
+
+        {/* Pinned Desktop SOS Button (Always visible at bottom, never scrolls) */}
+        <div className="p-6 border-t border-neutral-100 bg-red-50/20 shrink-0">
+          <button
+            onClick={() => setActiveTab('sos')}
+            className={cn(
+              "w-full py-4 px-5 rounded-2xl transition-all duration-300 flex items-center justify-between border-2 font-display uppercase tracking-wider italic font-black text-xs relative overflow-hidden group shadow-lg shadow-red-500/10 hover:shadow-red-500/25 active:scale-[0.98]",
+              activeTab === 'sos' 
+                ? "bg-red-600 text-white border-red-600 shadow-red-600/30 animate-pulse" 
+                : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200"
+            )}
+          >
+            {/* Ambient Background Pulse on Hover */}
+            <div className="absolute inset-0 bg-gradient-to-r from-red-600/0 via-red-600/5 to-red-600/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+            
+            <div className="flex items-center gap-3 relative z-10">
+              <AlertTriangle size={18} className={cn("animate-bounce", activeTab === 'sos' ? "text-white" : "text-red-600")} />
+              <span className="pt-0.5">Tactical SOS</span>
+            </div>
+            <span className={cn(
+              "text-[9px] font-sans px-2 py-0.5 rounded-full relative z-10 font-bold",
+              activeTab === 'sos' ? "bg-white/20 text-white" : "bg-red-600/10 text-red-600"
+            )}>LIVE</span>
+          </button>
         </div>
       </aside>
 
@@ -488,6 +513,47 @@ export default function Layout({
             <NavItem icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
           </nav>
         </div>
+
+        {/* Universal High-Visibility Floating Action Button (FAB) for SOS Trigger */}
+        {activeTab !== 'sos' && (
+          <div className="fixed bottom-24 right-5 md:bottom-8 md:right-8 z-[100]">
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              className="relative group"
+            >
+              {/* Pulsing Outer Aura */}
+              <div className="absolute -inset-2 bg-gradient-to-r from-red-600 to-orange-500 rounded-full blur-xl opacity-75 group-hover:opacity-100 group-hover:-inset-3 transition-all duration-500 animate-pulse pointer-events-none" />
+              
+              <button
+                onClick={() => {
+                  triggerHaptic(100);
+                  setIsConfirmingSOS(true);
+                }}
+                className="relative flex items-center justify-center gap-2 px-5 py-4 md:px-6 md:py-4 rounded-full bg-gradient-to-br from-red-600 via-red-700 to-orange-600 text-white font-display font-black tracking-widest text-xs uppercase italic shadow-[0_8px_32px_rgba(220,38,38,0.4)] hover:shadow-[0_12px_40px_rgba(220,38,38,0.6)] border border-red-400/30 hover:border-white/40 active:scale-95 transition-all duration-300 cursor-pointer"
+              >
+                {/* Internal Pulsing Indicator */}
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                </span>
+                
+                <ShieldAlert className="w-5 h-5 animate-bounce" />
+                
+                <span className="pt-0.5">TACTICAL SOS</span>
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Swipe Slide to Confirm SOS Dialog */}
+        <SOSConfirmationModal 
+          isOpen={isConfirmingSOS}
+          onClose={() => setIsConfirmingSOS(false)}
+          onConfirm={handleBroadcast}
+          emergencyContactsCount={profile?.emergencyContacts?.length || 0}
+        />
 
       </div>
     </div>

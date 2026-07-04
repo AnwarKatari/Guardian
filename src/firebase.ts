@@ -15,7 +15,8 @@ import {
   persistentMultipleTabManager,
   persistentSingleTabManager,
   doc, 
-  getDoc 
+  getDoc,
+  getDocFromServer
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -38,8 +39,7 @@ const cacheConfig = persistentLocalCache({
 let dbInstance;
 try {
   dbInstance = initializeFirestore(app, {
-    localCache: cacheConfig,
-    experimentalForceLongPolling: true
+    localCache: cacheConfig
   }, dbId);
 } catch (error) {
   console.warn("Failed to initialize Firestore with primary cache config, falling back...", error);
@@ -57,6 +57,21 @@ try {
 }
 
 export const db = dbInstance;
+
+// Test Firestore connection on initial boot (Critical Constraint from Skill)
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log("Firebase connection established successfully.");
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('Could not reach Cloud Firestore backend'))) {
+      console.warn("Please check your Firebase configuration or network status. The client will operate in offline-first mode.");
+    } else {
+      console.warn("Firestore connectivity test noted:", error);
+    }
+  }
+}
+testConnection();
 
 export const storage = getStorage(app);
 export const auth = getAuth(app);
@@ -86,7 +101,7 @@ export async function checkConnectivity() {
     }
     return true;
   } catch (error) {
-    console.error("Firebase connection check failed:", error);
+    console.warn("Firebase connection check failed:", error);
     return false;
   }
 }

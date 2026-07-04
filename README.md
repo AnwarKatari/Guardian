@@ -62,9 +62,55 @@ If you are using **Android Studio** to generate your app:
 5.  **Install on Phone**:
     -   Transfer this `.apk` file to your Android phone and open it to install.
 
+## 🚀 Foolproof Build Sequence (Guaranteed Clean)
+
+To avoid dependency issues and build failures, follow this sequence exactly every time you want a fresh build:
+
+```bash
+# 1. Completely wipe all previous build artifacts, dependencies, and native projects
+npm run clean:all
+
+# 2. Re-install all dependencies from scratch
+npm install
+
+# 3. Build the web assets and sync native projects in one go
+npm run build:mobile
+
+# 4. Build the Android APK (requires Android SDK configured in your local env)
+cd android
+./gradlew assembleDebug
+# Result: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+*Note: Native builds rely on your local environment (Java, Android SDK, Xcode). Ensure these are installed and configured according to the official Capacitor/Android/iOS docs if you run into environment errors.*
+
 ---
 
-## 💻 How to Compile the Windows Desktop App (EXE)
+---
+
+## 🎨 Customizing App Icons
+
+To replace the default icon with a custom "Guardian" design, follow these steps to ensure your app displays the correct icon on mobile home screens:
+
+### 1. Generate Your Icon Set
+Use a tool like [AppIcon.co](https://appicon.co/) or Adobe Express to generate a complete set of icons from a high-resolution source image (e.g., 1024x1024 PNG).
+- **Required**: A full set of Android `mipmap` folders and an iOS `AppIcon.appiconset` package.
+
+### 2. Update Android
+1.  Copy your generated `mipmap` folders into `android/app/src/main/res/`.
+2.  Ensure `android/app/src/main/AndroidManifest.xml` correctly references these in the `<application>` tag:
+    ```xml
+    android:icon="@mipmap/ic_launcher"
+    android:roundIcon="@mipmap/ic_launcher_round"
+    ```
+
+### 3. Update iOS
+1.  Open your project in Xcode: `npx cap open ios`
+2.  Navigate to `App` > `App` > `Assets.xcassets` in the Xcode file navigator.
+3.  Select `AppIcon`.
+4.  Drag and drop your generated iOS icons into the appropriate slots shown in the Xcode interface.
+5.  Build the app from Xcode to propagate the change.
+
 
 To compile a native Windows standalone application:
 

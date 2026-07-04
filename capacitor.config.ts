@@ -1,9 +1,12 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.guardian.safety',
-  appName: 'Ai-POWERED',
-  webDir: 'dist'
+  appId: 'com.safetyalert.app',
+  appName: 'SafetyAlert',
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https'
+  }
 };
 
 export default config;

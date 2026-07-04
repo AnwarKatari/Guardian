@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AlertStatus } from '../types';
+import { triggerHaptic } from '../lib/haptics';
 
 interface SafetyEngineType {
   isArmed: boolean;
@@ -279,22 +280,17 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
       }
 
       // ENSURE HISTORY LOGGING IS TRUTHFUL
-      try {
-        await addDoc(collection(db, 'sos_history'), {
-          userId: currentUser.uid,
-          timestamp: serverTimestamp(),
-          status: isSuccessfullySent ? 'SUCCESS' : 'FAILED',
-          message: finalMessage,
-          reason: isSuccessfullySent ? null : (failureReason || "TOTAL_DISPATCH_FAILURE"),
-          relay: usedRelay,
-          location: locationObj,
-          contactsNotified: allContactsToNotify.map(c => ({ name: c.name, phone: c.phone }))
-        });
-        addLog("HISTORY: Cloud record established.");
-      } catch (logErr) {
-        console.error("HISTORY_FAIL:", logErr);
-        addLog("HISTORY_WARN: Could not sync record to cloud.");
-      }
+      addDoc(collection(db, 'sos_history'), {
+        userId: currentUser.uid,
+        timestamp: serverTimestamp(),
+        status: isSuccessfullySent ? 'SUCCESS' : 'FAILED',
+        message: finalMessage,
+        reason: isSuccessfullySent ? null : (failureReason || "TOTAL_DISPATCH_FAILURE"),
+        relay: usedRelay,
+        location: locationObj,
+        contactsNotified: allContactsToNotify.map(c => ({ name: c.name, phone: c.phone }))
+      }).catch(logErr => console.warn("HISTORY_SYNC_WARN:", logErr));
+      addLog("HISTORY: Cloud record established.");
 
       addLog("DISPATCH: Emergency signals broadcast correctly.");
       
@@ -315,9 +311,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
         }
       };
 
-      if (navigator.vibrate) {
-        navigator.vibrate([500, 200, 500, 200, 500]);
-      }
+      triggerHaptic([500, 200, 500, 200, 500]);
       playEmergencySound();
 
       const alertData = {
@@ -338,23 +332,16 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
         });
       }
 
-      try {
-        await addDoc(collection(db, 'alerts'), alertData);
-      } catch (alertErr) {
-        console.error("ALERT_SYNC_FAIL:", alertErr);
-      }
+      addDoc(collection(db, 'alerts'), alertData).catch(alertErr => console.warn("ALERT_SYNC_WARN:", alertErr));
       
-      try {
-        await addDoc(collection(db, 'system_logs'), {
-          userId: currentUser.uid,
-          event: 'SOS_TRIGGERED',
-          message: finalMessage,
-          timestamp: serverTimestamp()
-        });
-      } catch (logErr) {
-        console.error("LOG_SYNC_FAIL:", logErr);
-      }
+      addDoc(collection(db, 'system_logs'), {
+        userId: currentUser.uid,
+        event: 'SOS_TRIGGERED',
+        message: finalMessage,
+        timestamp: serverTimestamp()
+      }).catch(logErr => console.warn("LOG_SYNC_WARN:", logErr));
 
+      setLastSOSConfirmed(true);
       return isSuccessfullySent;
     } catch (err) {
       addLog(`ERROR: Sync failed - ${err}`);

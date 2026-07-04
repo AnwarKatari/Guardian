@@ -1,0 +1,11 @@
+{
+	"appId": "com.safetyalert.app",
+	"appName": "SafetyAlert",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"packageClassList": [
+		"SmsManagerPlugin"
+	]
+}

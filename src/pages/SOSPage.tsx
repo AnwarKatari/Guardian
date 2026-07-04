@@ -34,19 +34,21 @@ import { UserProfile } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import FakeCallModal from '../components/FakeCallModal';
 import { GuardianLogo } from '../components/GuardianLogo';
+import { KeepAwake } from '@capacitor-community/keep-awake';
+import { triggerHaptic } from '../lib/haptics';
 
 export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string) => void }) {
   const [isActivating, setIsActivating] = useState(false);
-  const [isAlertActive, setIsAlertActive] = useState(false);
+  const { user, profile } = useAuth();
+  const { triggerSOS, addLog, checkInTimer, startCheckInTimer, cancelCheckInTimer, lastSOSConfirmed, setLastSOSConfirmed } = useSafety();
+
+  const [isAlertActive, setIsAlertActive] = useState(lastSOSConfirmed);
   const [progress, setProgress] = useState(0);
   const [showFakeCall, setShowFakeCall] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [holdWarning, setHoldWarning] = useState<string | null>(null);
   const [showEmergencyPrompt, setShowEmergencyPrompt] = useState(false);
   const [showEmergencyNumbersList, setShowEmergencyNumbersList] = useState(false);
-  
-  const { user, profile } = useAuth();
-  const { triggerSOS, addLog, checkInTimer, startCheckInTimer, cancelCheckInTimer } = useSafety();
   const timerRef = useRef<any>(null);
   const progressIntervalRef = useRef<any>(null);
   const warningTimeoutRef = useRef<any>(null);
@@ -82,12 +84,6 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
       osc.stop(ctx.currentTime + duration);
     } catch (e) {
       console.warn("Audio feedback failed:", e);
-    }
-  };
-
-  const triggerHaptic = (pattern: number | number[] = 50) => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate(pattern);
     }
   };
 
@@ -187,6 +183,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
     }
 
     setIsAlertActive(true);
+    setLastSOSConfirmed(true);
     setIsActivating(false);
     setProgress(0);
     // Heavy rapid final confirmation pulse pattern to signify successful dispatch
@@ -200,9 +197,54 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
 
   const cancelSOS = () => {
     setIsAlertActive(false);
+    setLastSOSConfirmed(false);
     triggerHaptic(50);
     addLog("Ai-POWERED: Protocol terminated by user.");
   };
+
+  useEffect(() => {
+    setIsAlertActive(lastSOSConfirmed);
+  }, [lastSOSConfirmed]);
+
+  // Keep-awake implementation using Capacitor plugin
+  useEffect(() => {
+    let active = false;
+    
+    const requestKeepAwake = async () => {
+      try {
+        const supported = await KeepAwake.isSupported();
+        if (supported.isSupported) {
+          await KeepAwake.keepAwake();
+          active = true;
+          addLog("SYSTEM: Keep-Awake plugin engaged. Screen dimming/locking suspended.");
+        }
+      } catch (err) {
+        console.warn("Capacitor Keep-Awake is not active or supported in this browser:", err);
+      }
+    };
+
+    const requestAllowSleep = async () => {
+      try {
+        if (active) {
+          await KeepAwake.allowSleep();
+          active = false;
+          addLog("SYSTEM: Keep-Awake plugin disengaged. Normal screen dimming/locking restored.");
+        }
+      } catch (err) {
+        console.warn("Capacitor Keep-Awake disengage error:", err);
+      }
+    };
+
+    if (isAlertActive) {
+      requestKeepAwake();
+    } else {
+      requestAllowSleep();
+    }
+
+    return () => {
+      requestAllowSleep();
+    };
+  }, [isAlertActive, addLog]);
 
   const emergencyData = getEmergencyNumbers(profile?.countryCode || 'GH');
 

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Phone, PhoneOff, Mic, MicOff, Grid, Volume2, Plus, User, ArrowLeft, Clock, Settings, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { triggerHaptic } from '../lib/haptics';
 
 export default function FakeCallPage({ setActiveTab }: { setActiveTab?: (tab: string) => void }) {
   const { profile, updateProfile } = useAuth();
@@ -42,9 +43,7 @@ export default function FakeCallPage({ setActiveTab }: { setActiveTab?: (tab: st
             playNote(440, now + 0.3, 0.2);
             playNote(880, now + 0.6, 0.4);
             
-            if (navigator.vibrate) {
-              navigator.vibrate([200, 100, 200]);
-            }
+            triggerHaptic([200, 100, 200]);
           };
 
           const intervalId = setInterval(loop, 2000);

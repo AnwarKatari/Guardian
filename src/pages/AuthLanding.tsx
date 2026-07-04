@@ -279,9 +279,9 @@ export default function AuthLanding() {
         setOtpError(null);
         
         if (data.simulated && data.otp) {
-          setOtpStatusMessage(`A secure verification code has been dispatched to ${email}. (Sandbox Code: ${data.otp})`);
+          setOtpStatusMessage(`A secure verification code has been dispatched to your phone number. (Sandbox Code: ${data.otp})`);
         } else {
-          setOtpStatusMessage(`A secure verification code has been dispatched to ${email}. Please check your inbox.`);
+          setOtpStatusMessage(data.message || `A secure verification code has been dispatched to your phone number via SMS.`);
         }
       } else {
         throw new Error(data.message || "Failed to dispatch verification OTP.");
@@ -416,9 +416,9 @@ export default function AuthLanding() {
         setOtpCountdown(60);
         setOtpValue('');
         if (data.simulated && data.otp) {
-          setOtpStatusMessage(`A fresh verification code has been dispatched to ${email}. (Sandbox Code: ${data.otp})`);
+          setOtpStatusMessage(`A fresh verification code has been dispatched to your phone number. (Sandbox Code: ${data.otp})`);
         } else {
-          setOtpStatusMessage(`A fresh verification code has been dispatched to ${email}.`);
+          setOtpStatusMessage(data.message || `A fresh verification code has been dispatched to your phone number via SMS.`);
         }
       } else {
         throw new Error(data.message || "Failed to dispatch verification OTP.");
@@ -583,11 +583,11 @@ export default function AuthLanding() {
             <div className="space-y-6">
               <div className="space-y-1.5">
                 <h2 className="text-2xl font-black italic tracking-tight text-neutral-900 uppercase font-display">
-                  {otpStage ? 'Verify Email' : (mode === 'login' ? 'Sign In' : 'Create Account')}
+                  {otpStage ? 'Verify Phone' : (mode === 'login' ? 'Sign In' : 'Create Account')}
                 </h2>
                 <p className="text-neutral-500 text-xs font-bold leading-relaxed italic">
                   {otpStage 
-                    ? `Verification code dispatched to ${email}` 
+                    ? `Verification code dispatched to your phone number.` 
                     : (mode === 'login' 
                         ? 'Sign in to access your security console' 
                         : 'Create a secure account to protect yourself')}

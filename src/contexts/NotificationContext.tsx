@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
+import { triggerHaptic } from '../lib/haptics';
 import { 
   SAFETY_TIPS, 
   getSchedulerConfig, 
@@ -83,9 +84,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (change.type === 'added') {
           const data = change.doc.data();
           if (data.status === 'ACTIVE') {
-            if (navigator.vibrate) {
-              navigator.vibrate([100, 100, 100, 100, 100, 100, 300, 100, 300, 100, 300, 100, 100, 100, 100, 100, 100, 100]);
-            }
+            triggerHaptic([100, 100, 100, 100, 100, 100, 300, 100, 300, 100, 300, 100, 100, 100, 100, 100, 100, 100]);
           }
         }
       });
