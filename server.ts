@@ -9,10 +9,13 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
 import fs from "fs";
+import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 
 dotenv.config();
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // Use process.cwd() for the base path to avoid ESM/CJS __dirname issues when bundled
 const BASE_PATH = process.cwd();
@@ -78,6 +81,46 @@ const getTransporter = () => {
   }
   return null;
 };
+
+// HELPER: Send email using SMTP with Resend API fallback
+async function sendEmail(to: string, subject: string, html: string, from: string = 'SafetyAlert <onboarding@resend.dev>'): Promise<boolean> {
+  const transporter = getTransporter();
+  
+  // Try SMTP first
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: from.replace('onboarding@resend.dev', process.env.SMTP_USER || 'benjaminrose5050@gmail.com'),
+        to,
+        subject,
+        html
+      });
+      console.log(`[SMTP_SUCCESS] Email sent to ${to}`);
+      return true;
+    } catch (smtpErr: any) {
+      console.error("[SMTP_ERR] Failed to send SMTP email, trying Resend fallback:", smtpErr.message);
+    }
+  }
+
+  // Fallback to Resend
+  if (resend) {
+    try {
+      await resend.emails.send({
+        from,
+        to,
+        subject,
+        html
+      });
+      console.log(`[RESEND_SUCCESS] Email sent to ${to} via Resend fallback`);
+      return true;
+    } catch (resendErr) {
+      console.error("[RESEND_ERR] Fallback Resend email also failed:", resendErr);
+    }
+  }
+  
+  console.log(`[EMAIL_SIMULATION] Fallback failed. To: ${to}\nSubject: ${subject}`);
+  return false;
+}
 
 // HELPER: Fetch user profile by email using Firestore REST API with the public API key.
 // This completely bypasses any gRPC PERMISSION_DENIED errors caused by server IAM limitations in the sandbox container.
@@ -473,8 +516,7 @@ async function startServer() {
       // 5. Determine configuration & send instantly (Non-blocking / Background dispatch)
       // This ensures Railway hosting has absolute zero timeouts, and the user transitions
       // to the OTP screen immediately without waiting on slow SMS gateways.
-      const transporter = getTransporter();
-      const hasSmtp = !!transporter;
+      const hasSmtp = !!resend;
       const arkeselKey = process.env.ARKESEL_API_KEY || process.env.ARKESEL_API_KEY;
       const smsOnlineKey = process.env.SMS_ONLINE_GH_KEY || process.env.SMS_ONLINE_GH_KEY;
       const hasSms = !!(arkeselKey || smsOnlineKey);
@@ -541,21 +583,13 @@ async function startServer() {
           const dispatchPromises: Promise<any>[] = [];
 
           // 1. Dispatch Email if configured
-          if (transporter) {
-            dispatchPromises.push((async () => {
-              try {
-                await transporter.sendMail({
-                  from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
-                  to: emailClean,
-                  subject: mailSubject,
-                  html: mailHtml
-                });
-                console.log(`[SERVER_AUTH_BG] Verification OTP email sent via SMTP to ${emailClean}`);
-              } catch (smtpErr: any) {
-                console.error("[SERVER_AUTH_BG_SMTP_ERR] Failed to send real SMTP email:", smtpErr.message);
-              }
-            })());
-          }
+          dispatchPromises.push(sendEmail(emailClean, mailSubject, mailHtml, `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`).then(success => {
+            if (success) {
+              console.log(`[SERVER_AUTH_BG] Verification OTP email sent via API to ${emailClean}`);
+            } else {
+              console.error("[SERVER_AUTH_BG_EMAIL_ERR] Failed to send real API email.");
+            }
+          }));
 
           // 2. Dispatch SMS in parallel if phone number exists and SMS is configured
           /* SMS sending removed as requested */
@@ -819,28 +853,15 @@ async function startServer() {
         </div>
       `;
 
-      // Attempt to send via Nodemailer
-      const transporter = getTransporter();
-      let sentReal = false;
-      if (transporter) {
-        try {
-          await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
-            to: emailClean,
-            subject: mailSubject,
-            html: mailHtml
-          });
-          sentReal = true;
-          console.log(`[SERVER_AUTH] Custom reset email sent via SMTP to ${emailClean}`);
-        } catch (smtpErr: any) {
-          console.error("[SERVER_AUTH_SMTP_ERR] Failed to send real SMTP custom reset email, falling back to simulation:", smtpErr.message);
-        }
-      }
-
+      // Attempt to send via API
+      const sentReal = await sendEmail(emailClean, mailSubject, mailHtml, `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`);
+      
       if (!sentReal) {
         console.log(`[SERVER_AUTH] [SIMULATION] Custom reset email for ${emailClean}:\nSubject: ${mailSubject}\nLink: ${resetLink}`);
         // Save simulation log using our secure REST fallback helper
         await saveSimulatedEmailToRest(emailClean, mailSubject, mailHtml, resetLink);
+      } else {
+         console.log(`[SERVER_AUTH] Custom reset email sent via API to ${emailClean}`);
       }
 
       res.json({
@@ -970,23 +991,8 @@ async function startServer() {
         return res.status(400).json({ status: "error", message: "Invalid notification type." });
       }
 
-      const transporter = getTransporter();
-      let sentReal = false;
-      if (transporter) {
-        try {
-          await transporter.sendMail({
-            from: `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
-            to: emailClean,
-            subject: mailSubject,
-            html: mailHtml
-          });
-          sentReal = true;
-          console.log(`[SERVER_AUTH] ${type} notification email sent via SMTP to ${emailClean}`);
-        } catch (smtpErr: any) {
-          console.error(`[SERVER_AUTH_SMTP_ERR] Failed to send real SMTP ${type} notification, falling back to simulation:`, smtpErr.message);
-        }
-      }
-
+      const sentReal = await sendEmail(emailClean, mailSubject, mailHtml, `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`);
+      
       if (!sentReal) {
         console.log(`[SERVER_AUTH] [SIMULATION] ${type} email to ${emailClean}:\nSubject: ${mailSubject}`);
         if (adminDb) {
@@ -1002,6 +1008,8 @@ async function startServer() {
             console.warn(`[SERVER_AUTH_DB_WARN] Failed to write simulated email to Firestore (GCP/IAM permission limit): ${dbErr.message}`);
           }
         }
+      } else {
+        console.log(`[SERVER_AUTH] ${type} notification email sent via API to ${emailClean}`);
       }
 
       res.json({
@@ -1034,7 +1042,6 @@ async function startServer() {
       const mapLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : "Unavailable";
       
       const results: any[] = [];
-      const transporter = getTransporter();
 
       for (const contact of emailContacts) {
         const toEmail = contact.email.trim();
@@ -1067,13 +1074,9 @@ async function startServer() {
           </div>
         `;
 
-        if (transporter) {
-          await transporter.sendMail({
-            from: `"SafetyAlert" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`,
-            to: toEmail,
-            subject: mailSubject,
-            html: mailHtml
-          });
+        const success = await sendEmail(toEmail, mailSubject, mailHtml, `"SafetyAlert" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`);
+        
+        if (success) {
           results.push({ email: toEmail, status: "sent" });
         } else {
           console.log(`[SERVER_SOS_EMAIL] [SIMULATION] SOS alert to ${toEmail} for sender ${senderName}`);
@@ -1094,10 +1097,11 @@ async function startServer() {
         }
       }
 
+      const allSent = results.every(r => r.status === "sent");
       res.json({
         status: "success",
         results,
-        message: transporter ? "SOS alert emails dispatched successfully." : "DEMO: SOS alert emails simulated successfully."
+        message: allSent ? "SOS alert emails dispatched successfully." : "SOS alert emails processed (some may be simulated)."
       });
 
     } catch (error: any) {
