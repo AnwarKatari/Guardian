@@ -12,7 +12,6 @@ import crypto from "crypto";
 
 dotenv.config();
 
-// Use process.cwd() for the base path to avoid ESM/CJS __dirname issues when bundled
 const BASE_PATH = process.cwd();
 
 // Load Firebase applet configuration
@@ -57,21 +56,106 @@ const lastSmsSent = new Map<string, number>();
 const SMS_COOLDOWN_MS = 1000;
 
 const PRIMARY_MODEL = "gemini-1.5-flash";
-const FALLBACK_MODEL = "gemini-1.5-flash-lite";
+
+// Helper for calling AI with fallback
+async function callPollinations(params: any): Promise<any> {
+  // Normalize messages
+  let messages = [];
+  if (params.contents) {
+      if (Array.isArray(params.contents)) {
+           messages = params.contents.map((c: any) => ({
+              role: c.role || 'user',
+              content: c.parts ? c.parts[0].text : c
+          }));
+      } else {
+          messages = [{ role: 'user', content: params.contents }];
+      }
+  } else if (params.config && params.config.systemInstruction) {
+      messages = [{ role: 'system', content: params.config.systemInstruction }];
+  }
+  
+  try {
+    const response = await axios.post(
+      'https://text.pollinations.ai/v1/chat/completions',
+      {
+        model: 'openai', 
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 256,
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000,
+      }
+    );
+    return { text: response.data.choices[0].message.content };
+  } catch (error: any) {
+    console.warn('[POLLINATIONS] Error:', error.message);
+    throw error;
+  }
+}
+
+async function callPawan(params: any): Promise<any> {
+  // Normalize messages
+  let messages = [];
+  if (params.contents) {
+      if (Array.isArray(params.contents)) {
+           messages = params.contents.map((c: any) => ({
+              role: c.role || 'user',
+              content: c.parts ? c.parts[0].text : c
+          }));
+      } else {
+          messages = [{ role: 'user', content: params.contents }];
+      }
+  } else if (params.config && params.config.systemInstruction) {
+      messages = [{ role: 'system', content: params.config.systemInstruction }];
+  }
+  
+  try {
+    const response = await axios.post(
+      'https://api.pawan.krd/v1/chat/completions',
+      {
+        model: 'gpt-4o', 
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 256,
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000,
+      }
+    );
+    return { text: response.data.choices[0].message.content };
+  } catch (error: any) {
+    console.warn('[PAWAN] Error:', error.message);
+    throw error;
+  }
+}
 
 // Helper for calling AI with fallback
 async function generateContentWithFallback(params: any): Promise<any> {
+  // Try Pollinations first
   try {
-    return await genAI!.models.generateContent({
+    return await callPollinations(params);
+  } catch (error) {
+    console.warn(`[AI_FALLBACK] Pollinations failed, trying Pawan`);
+  }
+
+  // Try Pawan second
+  try {
+    return await callPawan(params);
+  } catch (error) {
+    console.warn(`[AI_FALLBACK] Pawan failed, trying Gemini`);
+  }
+
+  // Try Primary (Gemini)
+  if (genAI) {
+    return await genAI.models.generateContent({
       ...params,
       model: PRIMARY_MODEL,
     });
-  } catch (error) {
-    console.warn(`[AI_FALLBACK] Primary model ${PRIMARY_MODEL} failed, trying fallback ${FALLBACK_MODEL}`);
-    return await genAI!.models.generateContent({
-      ...params,
-      model: FALLBACK_MODEL,
-    });
+  } else {
+    throw new Error("No AI service available (All fallbacks failed and Gemini key missing)");
   }
 }
 
@@ -990,7 +1074,7 @@ REF: ${req.body.ref || "unknown"}`;
 
   // SECURITY AI CHAT ENDPOINT
   app.post("/api/ai/chat", async (req, res) => {
-    const { message, history } = req.body;
+    const { message, history, location, safetyStatus } = req.body;
 
     if (!genAI) {
       return res.status(503).json({ 
@@ -1005,7 +1089,9 @@ REF: ${req.body.ref || "unknown"}`;
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }]
       }));
-      contents.push({ role: 'user', parts: [{ text: message }] });
+      
+      const context = `[Context] Safety Status: ${safetyStatus}. Location: ${location ? `${location.lat}, ${location.lng}` : 'Unavailable'}.`;
+      contents.push({ role: 'user', parts: [{ text: `${context}\n\n${message}` }] });
 
       // Helper for retry
       const sendMessageWithRetry = async (contents: any, retries = 5): Promise<any> => {
