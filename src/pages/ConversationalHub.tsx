@@ -8,9 +8,6 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Transformers.js – runs the AI locally in the browser
-import { pipeline, type TextGenerationPipeline } from '@xenova/transformers';
-
 // Fix Leaflet marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -28,27 +25,6 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-// Geocode a place name using Nominatim (free, no key)
-async function geocodePlace(place: string): Promise<{ lat: number; lng: number; name: string } | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'MyApp/1.0' }, // Required by Nominatim
-    });
-    const data = await res.json();
-    if (data && data.length > 0) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon),
-        name: data[0].display_name,
-      };
-    }
-  } catch (e) {
-    console.warn('Geocoding failed:', e);
-  }
-  return null;
-}
-
 export default function ConversationalHub() {
   const [messages, setMessages] = useState<
     { role: 'user' | 'assistant'; content: string }[]
@@ -56,97 +32,57 @@ export default function ConversationalHub() {
     {
       role: 'assistant',
       content:
-        "Hello! I'm an AI that runs entirely in your browser. Ask me for directions, places, or just chat. I'll show locations on the map automatically.",
+        "Hello! I'm your AI companion. Ask me for directions, places, or just chat. I'll show locations on the map automatically.",
     },
   ]);
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [mapLocation, setMapLocation] = useState<[number, number] | null>(null);
   const [mapPlaceName, setMapPlaceName] = useState<string | null>(null);
-  const [pipelineReady, setPipelineReady] = useState(false);
-  const [modelLoading, setModelLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const generatorRef = useRef<TextGenerationPipeline | null>(null);
-
-  // Load the AI pipeline once
-  useEffect(() => {
-    const loadModel = async () => {
-      setModelLoading(true);
-      try {
-        // You can switch to a smaller model: 'Xenova/phi-3-mini-4k-instruct' (2.3 GB)
-        // or 'Xenova/tinyllama-1.1b-chat' (1.1B, ~800 MB) for faster loading.
-        generatorRef.current = await pipeline(
-          'text-generation',
-          'Xenova/Phi-3.5-mini-instruct', // ~3.8B parameters – good reasoning
-          { device: 'webgpu' } // use WebGPU if available, else falls back to WASM
-        );
-        setPipelineReady(true);
-      } catch (err) {
-        console.error('Model load error:', err);
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'assistant',
-            content:
-              'Failed to load the AI model. Please check your internet connection and try again.',
-          },
-        ]);
-      } finally {
-        setModelLoading(false);
-      }
-    };
-    if (!generatorRef.current && !modelLoading) {
-      loadModel();
-    }
-  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isGenerating || !pipelineReady) return;
+    if (!input.trim() || isGenerating) return;
 
     const userMessage = input.trim();
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setInput('');
     setIsGenerating(true);
 
     try {
-      // Build the prompt with instruction to output a place JSON
-      const prompt = `You are a helpful assistant. If the user asks about a location, include a JSON object at the end like {"place": "exact place name"}. Otherwise, just reply conversationally.\nUser: ${userMessage}\nAssistant:`;
-
-      const result = await generatorRef.current!(prompt, {
-        max_new_tokens: 256,
-        temperature: 0.7,
-        do_sample: true,
-        return_full_text: false,
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          history: messages.slice(-10), // last 10 messages
+        }),
       });
 
-      let aiReply = result[0].generated_text.trim();
+      const data = await response.json();
+      if (data.status === 'success') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
 
-      // Try to extract a place name from the AI reply
-      let location = null;
-      const placeMatch = aiReply.match(/"place"\s*:\s*"([^"]+)"/);
-      if (placeMatch) {
-        const placeName = placeMatch[1];
-        const geo = await geocodePlace(placeName);
-        if (geo) {
-          location = geo;
-          setMapLocation([geo.lat, geo.lng]);
-          setMapPlaceName(geo.name);
+        // If the server returned a location, update the map
+        if (data.location) {
+          setMapLocation([data.location.lat, data.location.lng]);
+          setMapPlaceName(data.location.name);
         }
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: 'Sorry, the AI service is currently unavailable. Please try again later.' },
+        ]);
       }
-
-      setMessages(prev => [...prev, { role: 'assistant', content: aiReply }]);
     } catch (error) {
-      console.error('Generation error:', error);
-      setMessages(prev => [
+      console.error('[CHAT] Error:', error);
+      setMessages((prev) => [
         ...prev,
-        {
-          role: 'assistant',
-          content: 'Something went wrong while generating a response. Please try again.',
-        },
+        { role: 'assistant', content: 'Network error – please check your connection.' },
       ]);
     } finally {
       setIsGenerating(false);
@@ -167,17 +103,6 @@ export default function ConversationalHub() {
           <p className="text-neutral-400 text-[10px] font-black uppercase tracking-widest italic">
             AI companion &amp; map navigator
           </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-neutral-500">
-          {modelLoading && (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              <span>Loading AI…</span>
-            </>
-          )}
-          {pipelineReady && !modelLoading && (
-            <span className="text-green-600">● Ready</span>
-          )}
         </div>
       </header>
 
@@ -234,15 +159,15 @@ export default function ConversationalHub() {
               <input
                 type="text"
                 value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && sendMessage()}
-                placeholder={pipelineReady ? 'Ask for directions…' : 'Loading AI…'}
-                disabled={!pipelineReady || isGenerating}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder="Ask for directions or chat…"
+                disabled={isGenerating}
                 className="flex-1 bg-transparent px-4 py-2 text-sm focus:outline-none disabled:opacity-50"
               />
               <button
                 onClick={sendMessage}
-                disabled={!pipelineReady || isGenerating || !input.trim()}
+                disabled={isGenerating || !input.trim()}
                 className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:bg-neutral-300"
               >
                 <Send size={18} />
