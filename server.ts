@@ -1,22 +1,16 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
-import { SMSAuthService } from "./src/lib/SMSAuthService";
 import fs from "fs";
-import { Resend } from "resend";
-import * as nodemailer from "nodemailer";
 import crypto from "crypto";
 
 dotenv.config();
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // Use process.cwd() for the base path to avoid ESM/CJS __dirname issues when bundled
 const BASE_PATH = process.cwd();
@@ -51,7 +45,6 @@ try {
     
     adminDb = getFirestore(adminApp, dbId);
     adminAuth = getAuth(adminApp);
-    console.log("[FIREBASE_ADMIN] Initialized successfully with projectId:", firebaseConfig.projectId, "dbId:", dbId || "default");
   } else {
     console.warn("[FIREBASE_ADMIN] Missing projectId. Admin capabilities disabled.");
   }
@@ -63,10 +56,26 @@ try {
 const lastSmsSent = new Map<string, number>();
 const SMS_COOLDOWN_MS = 1000;
 
-// SYSTEM_KEY: Ai-POWERED Tactical Relay Key
-const SMS_KEY = process.env.SMS_ONLINE_GH_KEY;
+const PRIMARY_MODEL = "gemini-1.5-flash";
+const FALLBACK_MODEL = "gemini-1.5-flash-lite";
 
-// Initialize Gemini AI if key exists (optional fallback)
+// Helper for calling AI with fallback
+async function generateContentWithFallback(params: any): Promise<any> {
+  try {
+    return await genAI!.models.generateContent({
+      ...params,
+      model: PRIMARY_MODEL,
+    });
+  } catch (error) {
+    console.warn(`[AI_FALLBACK] Primary model ${PRIMARY_MODEL} failed, trying fallback ${FALLBACK_MODEL}`);
+    return await genAI!.models.generateContent({
+      ...params,
+      model: FALLBACK_MODEL,
+    });
+  }
+}
+
+// Initialize AI if key exists
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ 
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: {
@@ -76,52 +85,14 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({
   }
 }) : null;
 
-// ========== NEW: OLLAMA HELPER (FREE, OPEN-SOURCE, NO SIGN-UP) ==========
-async function callOllama(messages: any[], model = 'llama3.2') {
-  try {
-    const response = await axios.post('http://localhost:11434/api/chat', {
-      model: model,
-      messages: messages,
-      stream: false,
-      options: {
-        temperature: 0.7,
-        max_tokens: 256,
-      }
-    }, { timeout: 30000 });
-    return response.data.message.content;
-  } catch (error) {
-    console.warn('[OLLAMA] Error:', error.message);
-    return null;
-  }
-}
-
-// ========== NEW: GEOCODE USING NOMINATIM (FREE, NO KEY) ==========
-async function geocodePlace(place: string) {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`;
-    const res = await axios.get(url, {
-      headers: { 'User-Agent': 'MyApp/1.0' },
-      timeout: 5000
-    });
-    if (res.data && res.data.length > 0) {
-      return {
-        lat: parseFloat(res.data[0].lat),
-        lng: parseFloat(res.data[0].lon),
-        name: res.data[0].display_name,
-      };
-    }
-  } catch (e) {
-    console.warn('[GEOCODE] Error:', e.message);
-  }
-  return null;
-}
-// ======================================================================
-
 // HELPER: Send notification using SMS (replacing SMTP)
 async function sendSmsNotification(phoneNumbers: string[], message: string): Promise<boolean> {
   const result = await sendTacticalSms(phoneNumbers, message, "SafetyAlert");
   return result.success;
 }
+
+// HELPER: Fetch user profile by email using Firestore REST API with the public API key.
+// ... (rest of the file)
 
 // HELPER: Fetch user profile by email using Firestore REST API with the public API key.
 // This completely bypasses any gRPC PERMISSION_DENIED errors caused by server IAM limitations in the sandbox container.
@@ -218,14 +189,12 @@ const inMemoryResetTokens = new Map<string, { email: string; createdAt: string; 
 // HELPER: Overwrite or create a temp_resets token using secure in-memory store.
 async function saveTempResetToRest(token: string, email: string, createdAt: string, expiresAt: string): Promise<void> {
   inMemoryResetTokens.set(token, { email, createdAt, expiresAt });
-  console.log(`[IN_MEMORY_SUCCESS] Successfully saved secure fallback temp reset token for ${email}.`);
 }
 
 // HELPER: Fetch a temp_resets token by ID from secure in-memory store.
 async function getTempResetFromRest(token: string): Promise<any> {
   const tokenData = inMemoryResetTokens.get(token);
   if (!tokenData) {
-    console.log(`[IN_MEMORY_INFO] Reset token ${token} not found or expired.`);
     return null;
   }
   return tokenData;
@@ -245,14 +214,12 @@ const inMemoryOTPs = new Map<string, { otp: string; createdAt: string; expiresAt
 // HELPER: Save OTP for an email
 async function saveOtp(email: string, otp: string, createdAt: string, expiresAt: string): Promise<void> {
   inMemoryOTPs.set(email.toLowerCase().trim(), { otp, createdAt, expiresAt });
-  console.log(`[IN_MEMORY_SUCCESS] Successfully saved verification OTP for ${email}.`);
 }
 
 // HELPER: Get OTP for an email
 async function getOtp(email: string): Promise<any> {
   const otpData = inMemoryOTPs.get(email.toLowerCase().trim());
   if (!otpData) {
-    console.log(`[IN_MEMORY_INFO] OTP for ${email} not found or expired.`);
     return null;
   }
   return otpData;
@@ -976,8 +943,7 @@ REF: ${req.body.ref || "unknown"}`;
     }
 
     try {
-      const response = await (genAI as any).models.generateContent({
-        model: "gemini-1.5-flash",
+      const response = await generateContentWithFallback({
         contents: `You are the Ai-POWERED Security Assistant. 
         Write a professional, tactical, and reassuring user bio for the 'Ai-POWERED HUMAN SAFETY ALERT' app. 
         The bio should reflect a sense of being 'prepared, vigilant, and community-focused'. 
@@ -996,7 +962,6 @@ REF: ${req.body.ref || "unknown"}`;
     }
   });
 
-  // THREAT ANALYSIS ENDPOINT
   app.post("/api/ai/analyze-threat", async (req, res) => {
     const { description, location } = req.body;
 
@@ -1008,8 +973,7 @@ REF: ${req.body.ref || "unknown"}`;
     }
 
     try {
-      const response = await genAI.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await generateContentWithFallback({
         config: {
           systemInstruction: "You are a versatile AI companion specialized in personal safety, health, and wellness. Analyze the reported incident or query, provide relevant safety tips, health first-aid advice, and a threat assessment where appropriate. Keep responses concise, supportive, and informative.",
         },
@@ -1024,74 +988,66 @@ REF: ${req.body.ref || "unknown"}`;
     }
   });
 
-  // ================= MODIFIED AI CHAT ENDPOINT =================
+  // SECURITY AI CHAT ENDPOINT
   app.post("/api/ai/chat", async (req, res) => {
     const { message, history } = req.body;
 
-    // Build messages for Ollama format
-    const ollamaMessages = [];
-    if (history && history.length > 0) {
-      for (const msg of history) {
-        ollamaMessages.push({
-          role: msg.role === 'assistant' ? 'assistant' : 'user',
-          content: msg.content
-        });
-      }
-    }
-    ollamaMessages.push({ role: 'user', content: message });
-
-    // 1. Try Ollama (primary)
-    let aiResponse = await callOllama(ollamaMessages);
-    let usedService = 'ollama';
-
-    // 2. Fallback to Gemini if Ollama fails and Gemini is available
-    if (!aiResponse && genAI) {
-      try {
-        const contents = history ? history.map((msg: any) => ({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }]
-        })) : [];
-        contents.push({ role: 'user', parts: [{ text: message }] });
-
-        const response = await genAI.models.generateContent({
-          model: "gemini-3.5-flash",
-          config: {
-            systemInstruction: "You are a versatile and supportive AI companion specialized in personal safety, health, wellness, and general support. Provide expert advice on safety, health first-aid, and wellness best practices. Be a comforting and helpful companion when the user is lonely or needs someone to talk to. IMPORTANT: Do not use markdown bolding (double asterisks) in your responses. Use simple, plain text for emphasis. If the user asks for a location, include a JSON object at the end like {\"place\": \"exact place name\"}.",
-          },
-          contents: contents,
-        });
-        aiResponse = response.text;
-        usedService = 'gemini';
-      } catch (err) {
-        console.error('[GEMINI] Error:', err);
-      }
-    }
-
-    if (!aiResponse) {
-      return res.status(503).json({
-        status: "error",
-        message: "AI service unavailable. Please check Ollama or Gemini configuration."
+    if (!genAI) {
+      return res.status(503).json({ 
+        status: "error", 
+        message: "AI capability is not initialized." 
       });
     }
 
-    // Extract location from AI response (if present)
-    let location = null;
-    const placeMatch = aiResponse.match(/"place"\s*:\s*"([^"]+)"/);
-    if (placeMatch) {
-      const placeName = placeMatch[1];
-      const geo = await geocodePlace(placeName);
-      if (geo) {
-        location = geo;
-      }
-    }
+    try {
+      // Convert history to Gemini contents format
+      const contents = (history || []).map((msg: any) => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+      contents.push({ role: 'user', parts: [{ text: message }] });
 
-    // Send response with location data (for map)
-    res.json({
-      status: "success",
-      response: aiResponse,
-      location: location, // null if no location found
-      service: usedService // optional, for debugging
-    });
+      // Helper for retry
+      const sendMessageWithRetry = async (contents: any, retries = 5): Promise<any> => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            return await generateContentWithFallback({
+              config: {
+                systemInstruction: "You are a versatile and supportive AI companion specialized in personal safety, health, wellness, and general support. Provide expert advice on safety, health first-aid, and wellness best practices. Be a comforting and helpful companion when the user is lonely or needs someone to talk to. IMPORTANT: Do not use markdown bolding (double asterisks) in your responses. Use simple, plain text for emphasis.",
+              },
+              contents: contents,
+            });
+          } catch (error: any) {
+            console.error(`[AI_ERR] Chat attempt ${i + 1} failed:`, error);
+            
+            // Robust detection for 503
+            let errorCode = error.status || (error.error && error.error.code) || error.code;
+            
+            // If still not detected, try parsing string representation
+            if (!errorCode) {
+              const errStr = JSON.stringify(error);
+              if (errStr.includes('"code":503') || errStr.includes('"status":503') || errStr.includes('503')) {
+                errorCode = 503;
+              }
+            }
+            
+            console.log(`[AI_DEBUG] Detected error code: ${errorCode}`);
+
+            if (errorCode === 503 && i < retries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1))); // Increased backoff
+              continue;
+            }
+            throw error;
+          }
+        }
+      };
+
+      const response = await sendMessageWithRetry(contents);
+      res.json({ status: "success", response: response.text });
+    } catch (error: any) {
+      console.error("[AI_ERR] Chat failed:", error);
+      res.status(500).json({ status: "error", message: "Failed to get response via AI." });
+    }
   });
 
   // TACTICAL SMS DISPATCH ENDPOINT
@@ -1135,6 +1091,7 @@ REF: ${req.body.ref || "unknown"}`;
       unitsReached: phoneNumbers.length
     });
   });
+
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
