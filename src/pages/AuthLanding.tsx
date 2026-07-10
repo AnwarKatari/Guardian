@@ -285,8 +285,8 @@ export default function AuthLanding() {
         setOtpCountdown(60);
         setOtpValue('');
         
-        if (data.simulated && data.otp) {
-          addToast(`Verification code: ${data.otp}`, 'success');
+        if (data.simulated) {
+          addToast("Verification code simulated. Check Firestore for the code.", 'success');
         } else {
           addToast(data.message || `Verification code sent via SMS.`, 'success');
         }
@@ -418,8 +418,8 @@ export default function AuthLanding() {
       if (data.status === "success") {
         setOtpCountdown(60);
         setOtpValue('');
-        if (data.simulated && data.otp) {
-          addToast(`Verification code: ${data.otp}`, 'success');
+        if (data.simulated) {
+          addToast("Verification code simulated. Check Firestore for the code.", 'success');
         } else {
           addToast(data.message || `Verification code sent via SMS.`, 'success');
         }

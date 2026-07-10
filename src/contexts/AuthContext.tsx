@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const sendWelcomeNotification = async (email: string, displayName: string) => {
     try {
-      const response = await fetch("/api/email/notify-auth", {
+      const response = await fetch("/api/notification/notify-auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const sendSignInNotification = async (email: string, displayName: string) => {
     try {
-      const response = await fetch("/api/email/notify-auth", {
+      const response = await fetch("/api/notification/notify-auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

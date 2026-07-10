@@ -60,6 +60,8 @@ export interface UserProfile {
   badges?: string[];
   completedChallenges?: string[];
   sosHoldDuration?: number;
+  sirenEnabled?: boolean;
+  panicMode?: boolean;
 }
 
 export interface OfflineRegion {
@@ -79,6 +81,7 @@ export interface EmergencyContact {
   email?: string;
   isVerified: boolean;
   verificationCode?: string;
+  priority?: 'primary' | 'secondary';
 }
 
 export interface FakeCallSettings {

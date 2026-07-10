@@ -60,7 +60,7 @@ import {
 
 export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const { user, profile, isLocalMode, updateProfile } = useAuth();
-  const { micStatus, lastSOSConfirmed, setLastSOSConfirmed } = useSafety();
+  const { micStatus, lastSOSConfirmed, setLastSOSConfirmed, setIsContactModalOpen } = useSafety();
   
   // Daily Safety Tips States
   const { addLocalNotification } = useNotifications();
@@ -148,7 +148,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
   const [localPhone, setLocalPhone] = useState(profile?.phoneNumber || '');
   const [isGeneratingBio, setIsGeneratingBio] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const [newContact, setNewContact] = useState({ name: '', phone: '', email: '' });
+  const [newContact, setNewContact] = useState({ name: '', phone: '', email: '', priority: 'primary' as 'primary' | 'secondary' });
   const [contactCountryCode, setContactCountryCode] = useState(
     COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233'
   );
@@ -300,7 +300,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
     if (editingContactId) {
       // Update existing
       const updatedContacts = profile.emergencyContacts.map(c => 
-        c.id === editingContactId ? { ...c, name: finalName, phone: finalPhone, email: newContact.email || '' } : c
+        c.id === editingContactId ? { ...c, name: finalName, phone: finalPhone, email: newContact.email || '', priority: newContact.priority } : c
       );
       await updateProfile({ emergencyContacts: updatedContacts });
     } else {
@@ -317,6 +317,7 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
         name: finalName,
         phone: finalPhone,
         email: newContact.email || '',
+        priority: newContact.priority,
         isVerified: true
       };
 
@@ -326,22 +327,24 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
       });
     }
     
-    setNewContact({ name: '', phone: '', email: '' });
+    setNewContact({ name: '', phone: '', email: '', priority: 'primary' });
     setContactCountryCode(COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233');
     setEditingContactId(null);
     setShowContactModal(false);
+    setIsContactModalOpen(false);
   };
 
   const openNewContactModal = () => {
-    setNewContact({ name: '', phone: '', email: '' });
+    setNewContact({ name: '', phone: '', email: '', priority: 'primary' });
     setContactCountryCode(COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233');
     setEditingContactId(null);
     setShowContactModal(true);
+    setIsContactModalOpen(true);
   };
 
   const handleEditContact = (contact: any) => {
     const contactEmail = contact.email || '';
-    setNewContact({ name: contact.name, phone: contact.phone, email: contactEmail });
+    setNewContact({ name: contact.name, phone: contact.phone, email: contactEmail, priority: contact.priority || 'primary' });
     
     // Attempt to extract country code
     const match = COUNTRIES.find(c => contact.phone.startsWith(c.dialCode));
@@ -350,18 +353,21 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
       setNewContact({ 
         name: contact.name, 
         phone: contact.phone.replace(match.dialCode, '').replace(/\D/g, ''),
-        email: contactEmail
+        email: contactEmail,
+        priority: contact.priority || 'primary'
       });
     } else {
       setNewContact({ 
         name: contact.name, 
         phone: contact.phone.replace(/\D/g, ''),
-        email: contactEmail
+        email: contactEmail,
+        priority: contact.priority || 'primary'
       });
     }
 
     setEditingContactId(contact.id);
     setShowContactModal(true);
+    setIsContactModalOpen(true);
   };
 
   const handlePickContact = async () => {
@@ -699,6 +705,70 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
         </div>
       </section>
 
+      {/* Trusted Contacts */}
+      <section className="space-y-3 relative z-10">
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-2">
+             <Users size={10} className="text-blue-500" />
+             <h3 className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Trusted Contacts ({profile?.emergencyContacts?.length || 0}/3)</h3>
+          </div>
+          <button 
+            onClick={openNewContactModal}
+            disabled={profile?.emergencyContacts && profile.emergencyContacts.length >= 3}
+            className="p-1 bg-blue-50 text-blue-500 hover:bg-blue-100 rounded-md transition-colors border border-blue-100 shadow-sm disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Plus size={12} />
+          </button>
+        </div>
+        <div className="space-y-2">
+          {profile?.emergencyContacts?.length ? (
+            profile.emergencyContacts.map((contact, i) => (
+              <div key={i} className="p-3 bg-white border border-neutral-100 rounded-2xl flex items-center justify-between shadow-sm hover:border-blue-500/20 transition-all group">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-neutral-50 flex items-center justify-center text-neutral-400 group-hover:text-blue-500 transition-colors border border-neutral-100">
+                    <User size={14} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-black text-neutral-900 italic uppercase tracking-tight">{contact.name}</p>
+                      <CheckCircle2 size={8} className="text-emerald-500" />
+                      <span className={cn(
+                        "text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-widest",
+                        contact.priority === 'primary' ? "bg-blue-100 text-blue-600" : "bg-neutral-100 text-neutral-500"
+                      )}>
+                        {contact.priority || 'secondary'}
+                      </span>
+                    </div>
+                    <p className="text-[9px] font-bold text-neutral-400">{contact.phone}</p>
+                    {contact.email && (
+                      <p className="text-[8px] font-bold text-blue-500 lowercase tracking-wider mt-0.5">{contact.email}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  <button 
+                    onClick={() => handleEditContact(contact)}
+                    className="p-1.5 text-neutral-300 hover:text-blue-500 transition-colors"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                  <button 
+                    onClick={() => handleRemoveContact(contact)}
+                    className="p-1.5 text-neutral-300 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-8 text-center bg-neutral-50 border border-dashed border-neutral-100 rounded-2xl">
+              <p className="text-[9px] text-neutral-300 font-black uppercase tracking-widest italic">No contacts added</p>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* ADVANCED SECURITY FEATURES */}
       <section className="space-y-4 relative z-10">
         <div className="flex items-center gap-2 px-2">
@@ -812,6 +882,66 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                 className="w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center" 
               >
                 <div className={cn("w-1 h-1 rounded-full", profile?.voiceSentinelEnabled ? "bg-blue-600" : "bg-neutral-300")} />
+              </motion.div>
+            </button>
+          </div>
+
+          {/* Panic Mode Toggle */}
+          <div className="p-6 flex items-center justify-between hover:bg-neutral-50 transition-colors group">
+            <div className="flex items-center gap-5">
+              <div className={cn(
+                "p-4 rounded-[20px] transition-all duration-300 border shadow-sm",
+                profile?.panicMode ? "bg-red-600 text-white border-red-500 shadow-red-500/20" : "bg-neutral-50 text-neutral-400 border-neutral-100 group-hover:bg-red-50 group-hover:text-red-600 group-hover:border-red-100"
+              )}>
+                <AlertTriangle size={20} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-neutral-900 uppercase tracking-widest italic leading-none">Panic Mode</p>
+                <p className="text-[9px] font-bold text-neutral-400 uppercase leading-none tracking-tight italic">Transform dashboard for emergency priority</p>
+              </div>
+            </div>
+            <button
+              onClick={() => updateProfile({ panicMode: !profile?.panicMode })}
+              className={cn(
+                "w-14 h-7 rounded-full transition-all relative p-1 shadow-inner",
+                profile?.panicMode ? "bg-red-600" : "bg-neutral-200"
+              )}
+            >
+              <motion.div 
+                animate={{ x: profile?.panicMode ? 28 : 0 }}
+                className="w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center" 
+              >
+                <div className={cn("w-1 h-1 rounded-full", profile?.panicMode ? "bg-red-600" : "bg-neutral-300")} />
+              </motion.div>
+            </button>
+          </div>
+
+          {/* Siren Alert Toggle */}
+          <div className="p-6 flex items-center justify-between hover:bg-neutral-50 transition-colors group">
+            <div className="flex items-center gap-5">
+              <div className={cn(
+                "p-4 rounded-[20px] transition-all duration-300 border shadow-sm",
+                profile?.sirenEnabled ? "bg-red-600 text-white border-red-500 shadow-red-500/20" : "bg-neutral-50 text-neutral-400 border-neutral-100 group-hover:bg-red-50 group-hover:text-red-600 group-hover:border-red-100"
+              )}>
+                <Speaker size={20} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-neutral-900 uppercase tracking-widest italic leading-none">Emergency Siren</p>
+                <p className="text-[9px] font-bold text-neutral-400 uppercase leading-none tracking-tight italic">Audible siren on SOS trigger</p>
+              </div>
+            </div>
+            <button
+              onClick={() => updateProfile({ sirenEnabled: !profile?.sirenEnabled })}
+              className={cn(
+                "w-14 h-7 rounded-full transition-all relative p-1 shadow-inner",
+                profile?.sirenEnabled ? "bg-red-600" : "bg-neutral-200"
+              )}
+            >
+              <motion.div 
+                animate={{ x: profile?.sirenEnabled ? 28 : 0 }}
+                className="w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center" 
+              >
+                <div className={cn("w-1 h-1 rounded-full", profile?.sirenEnabled ? "bg-red-600" : "bg-neutral-300")} />
               </motion.div>
             </button>
           </div>
@@ -1179,64 +1309,6 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
         </div>
       </section>
 
-      {/* Trusted Contacts */}
-      <section className="space-y-3 relative z-10">
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-2">
-             <Users size={10} className="text-blue-500" />
-             <h3 className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Trusted Contacts ({profile?.emergencyContacts?.length || 0}/3)</h3>
-          </div>
-          <button 
-            onClick={openNewContactModal}
-            disabled={profile?.emergencyContacts && profile.emergencyContacts.length >= 3}
-            className="p-1 bg-blue-50 text-blue-500 hover:bg-blue-100 rounded-md transition-colors border border-blue-100 shadow-sm disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <Plus size={12} />
-          </button>
-        </div>
-        <div className="space-y-2">
-          {profile?.emergencyContacts.length ? (
-            profile.emergencyContacts.map((contact, i) => (
-              <div key={i} className="p-3 bg-white border border-neutral-100 rounded-2xl flex items-center justify-between shadow-sm hover:border-blue-500/20 transition-all group">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-neutral-50 flex items-center justify-center text-neutral-400 group-hover:text-blue-500 transition-colors border border-neutral-100">
-                    <User size={14} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-black text-neutral-900 italic uppercase tracking-tight">{contact.name}</p>
-                      <CheckCircle2 size={8} className="text-emerald-500" />
-                    </div>
-                    <p className="text-[9px] font-bold text-neutral-400">{contact.phone}</p>
-                    {contact.email && (
-                      <p className="text-[8px] font-bold text-blue-500 lowercase tracking-wider mt-0.5">{contact.email}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-0.5">
-                  <button 
-                    onClick={() => handleEditContact(contact)}
-                    className="p-1.5 text-neutral-300 hover:text-blue-500 transition-colors"
-                  >
-                    <Save size={12} />
-                  </button>
-                  <button 
-                    onClick={() => handleRemoveContact(contact)}
-                    className="p-1.5 text-neutral-300 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-8 text-center bg-neutral-50 border border-dashed border-neutral-100 rounded-2xl">
-              <p className="text-[9px] text-neutral-300 font-black uppercase tracking-widest italic">No contacts added</p>
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* Global Safety Switches */}
       <section className="bg-white border border-neutral-100 rounded-[28px] overflow-hidden divide-y divide-neutral-50 shadow-2xl shadow-blue-50 relative z-10">
         <div className="p-3.5 flex items-center justify-between hover:bg-neutral-50 transition-colors">
@@ -1525,10 +1597,9 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                     value={newContact.name}
                     onChange={e => setNewContact({...newContact, name: e.target.value})}
                   />
-                  <div className="flex gap-2">
-                      <div className="relative">
+                  <div className="relative">
                        <select
-                        className="h-full pl-3 pr-8 bg-neutral-50 rounded-xl border border-neutral-100 focus:border-blue-600 transition-all font-black uppercase text-[10px] italic appearance-none cursor-pointer"
+                        className="w-full pl-3 pr-8 py-3 bg-neutral-50 rounded-xl border border-neutral-100 focus:border-blue-600 transition-all font-black uppercase text-[10px] italic appearance-none cursor-pointer"
                         value={contactCountryCode}
                         onChange={(e) => setContactCountryCode(e.target.value)}
                       >
@@ -1538,18 +1609,17 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                           </option>
                         ))}
                       </select>
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-blue-600">
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-600">
                         <Globe size={10} />
                       </div>
                     </div>
                     <input 
                       type="tel" 
                       placeholder="Phone Number" 
-                      className="flex-1 px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-colors text-neutral-900 italic"
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-colors text-neutral-900 italic"
                       value={newContact.phone}
                       onChange={e => setNewContact({...newContact, phone: e.target.value})}
                     />
-                  </div>
                   <input 
                     type="email" 
                     placeholder="Email Address (Optional)" 
@@ -1557,24 +1627,33 @@ export default function SettingsPage({ setActiveTab }: { setActiveTab: (tab: str
                     value={newContact.email}
                     onChange={e => setNewContact({...newContact, email: e.target.value})}
                   />
+                  <select
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-colors text-neutral-900 italic uppercase"
+                    value={newContact.priority}
+                    onChange={e => setNewContact({...newContact, priority: e.target.value as 'primary' | 'secondary'})}
+                  >
+                    <option value="primary">Primary</option>
+                    <option value="secondary">Secondary</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button 
                   onClick={() => {
                     setShowContactModal(false);
+                    setIsContactModalOpen(false);
                     setEditingContactId(null);
-                    setNewContact({ name: '', phone: '', email: '' });
+                    setNewContact({ name: '', phone: '', email: '', priority: 'primary' });
                     setContactCountryCode(COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233');
                   }}
-                  className="py-3 bg-neutral-50 text-neutral-400 rounded-xl font-black active:scale-95 transition-all text-[9px] uppercase tracking-widest italic"
+                  className="px-6 py-3 bg-neutral-50 text-neutral-400 rounded-xl font-black active:scale-95 transition-all text-[9px] uppercase tracking-widest italic"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={() => handleSaveContact()}
-                  className="py-3 bg-blue-600 text-white rounded-xl font-black shadow-lg shadow-blue-200 active:scale-95 transition-all text-[9px] uppercase tracking-widest italic"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black shadow-lg shadow-blue-200 active:scale-95 transition-all text-[9px] uppercase tracking-widest italic"
                 >
                   {editingContactId ? 'Update' : 'Save'}
                 </button>

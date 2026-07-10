@@ -28,7 +28,7 @@ import {
   Shield,
   Users
 } from 'lucide-react';
-import SOSConfirmationModal from '../components/SOSConfirmationModal';
+
 import { useLocation } from '../contexts/LocationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSafety } from '../contexts/SafetyEngineContext';
@@ -575,13 +575,6 @@ export default function EmergencyHub({ setActiveTab }: { setActiveTab?: (tab: st
          </div>
          <span className="text-[7px] font-black uppercase tracking-widest text-neutral-400">OS_VER: 4.2.0.RELAY</span>
       </div>
-
-      <SOSConfirmationModal 
-        isOpen={isConfirmingSOS}
-        onClose={() => setIsConfirmingSOS(false)}
-        onConfirm={handleBroadcast}
-        emergencyContactsCount={profile?.emergencyContacts?.length || 0}
-      />
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }

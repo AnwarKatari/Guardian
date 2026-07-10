@@ -24,12 +24,18 @@ interface SafetyEngineType {
   };
   startCheckInTimer: (seconds: number) => void;
   cancelCheckInTimer: () => void;
+  isEmergencyActive: boolean;
+  setIsEmergencyActive: (val: boolean) => void;
+  isContactModalOpen: boolean;
+  setIsContactModalOpen: (val: boolean) => void;
 }
 
 const SafetyEngineContext = createContext<SafetyEngineType | null>(null);
 
 export function SafetyEngineProvider({ children }: { children: React.ReactNode }) {
   const [isArmed, setIsArmedState] = useState(true);
+  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const setIsArmed = useCallback((val: boolean) => {
     Promise.resolve().then(() => {
       setIsArmedState(val);
@@ -73,23 +79,25 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     message: string,
     location: any
   ) => {
-    // 1. Parse the trusted contacts list to extract valid emails
-    const emailContacts = contacts.filter(c => c.email && c.email.trim() !== '');
+    // 1. Parse the trusted contacts list
+    const primaryContacts = contacts.filter(c => c.email && c.email.trim() !== '' && c.priority === 'primary');
+    const secondaryContacts = contacts.filter(c => c.email && c.email.trim() !== '' && c.priority !== 'primary');
     
-    if (emailContacts.length === 0) {
+    if (primaryContacts.length === 0 && secondaryContacts.length === 0) {
       addLog("EMAIL_BACKUP_WARN: No trusted contacts with registered email addresses found.");
       return false;
     }
 
-    addLog(`EMAIL_BACKUP: Parsing ${emailContacts.length} trusted contact email endpoints...`);
+    addLog(`EMAIL_BACKUP: Parsing ${primaryContacts.length + secondaryContacts.length} trusted contact email endpoints...`);
     
     try {
       addLog("EMAIL_BACKUP: Transmitting SOS alerts via secure SMTP configuration...");
-      const emailResponse = await fetch('/api/email/send-sos-alert', {
+      const emailResponse = await fetch('/api/notification/send-sos-alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contacts: emailContacts,
+          primaryContacts,
+          secondaryContacts,
           senderName: userName,
           message: message,
           location: location
@@ -109,20 +117,18 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
           addLog(`EMAIL_BACKUP_SIM: Automated simulation completed for ${simulatedCount} contacts (no active SMTP key).`);
           return true;
         }
-      } else {
-        addLog(`EMAIL_BACKUP_ERR: SMTP dispatch returned error status - ${emailData.message || "Unknown issue"}`);
       }
-    } catch (emailErr: any) {
-      console.error("SOS automated fallback email alert dispatch error:", emailErr);
-      addLog(`EMAIL_BACKUP_FAIL: Critical failure in email dispatch relay.`);
+      return false;
+    } catch (err) {
+      console.error("[EMAIL_BACKUP_ERR]", err);
+      return false;
     }
-    
-    return false;
   }, [addLog]);
 
   const triggerSOS = useCallback(async () => {
     if (isTriggering.current) return false;
     isTriggering.current = true;
+    setIsEmergencyActive(true);
 
     const currentUser = user;
     const currentProfile = profileRef.current;
@@ -131,10 +137,12 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     if (!currentUser) {
       addLog("SOS FAILED: User not authenticated.");
       isTriggering.current = false;
+      setIsEmergencyActive(false);
       return false;
     }
 
     const allContactsToNotify = currentProfile?.emergencyContacts || [];
+    addLog(`DEBUG_SOS: Contacts length: ${allContactsToNotify.length}`);
     
     if (allContactsToNotify.length === 0) {
       const errorMsg = "SOS ABORTED: No emergency contacts found. Protocol suspended.";
@@ -154,6 +162,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
       }
       
       isTriggering.current = false;
+      setIsEmergencyActive(false);
       return false;
     }
 
@@ -216,70 +225,77 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     const senderContact = currentProfile?.phoneNumber ? `\nCONTACT: ${currentProfile.phoneNumber}` : "";
     const finalMessage = `[Ai-POWERED SOS]\nSENDER: ${userName.toUpperCase()}${senderContact}\nSTATUS: ${sosBody}\nLOCATION: https://www.google.com/maps?q=${locationObj?.lat},${locationObj?.lng}\nTIME: ${timestamp}\nREF: ${currentUser.email}`;
     
+    // Broadcast to targets
     let isSuccessfullySent = false;
     let usedRelay = "UNKNOWN";
     let failureReason = "";
-
-    // Broadcast to targets
+    
     try {
       if (allContactsToNotify.length > 0) {
-        const phoneNumbers = allContactsToNotify.map(c => c.phone);
+        const phoneNumbers = allContactsToNotify.map(c => c.phone).filter(p => !!p);
         let smsGatewaySucceeded = false;
 
         // EXCLUSIVE Arkesel Cloud Relay
-        try {
-          addLog("SAFETY_RELAY: Engaging cloud dispatch protocols...");
-          // ARKESEL SENDER ID: Using pre-verified unified ID
-          const sanitizedSenderName = "SafetyAlert";
+        if (phoneNumbers.length > 0) {
+          try {
+            addLog("SAFETY_RELAY: Engaging cloud dispatch protocols...");
+            // ARKESEL SENDER ID: Using pre-verified unified ID
+            const sanitizedSenderName = "SafetyAlert";
 
-          const response = await fetch('/api/sms/dispatch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phoneNumbers,
-              message: finalMessage,
-              senderName: sanitizedSenderName
-            })
-          });
-          const data = await response.json();
-          if (data.status === 'success') {
-            addLog(`SERVER_RELAY: Signal broadcast via ${data.relay}`);
-            isSuccessfullySent = true;
-            usedRelay = data.relay;
-            
-            // Check if it's a real gateway transmission success
-            if (data.relay !== "SIMULATION_FALLBACK" && data.relay !== "SIMULATION_MODE") {
-              smsGatewaySucceeded = true;
+            const response = await fetch('/api/sms/dispatch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phoneNumbers,
+                message: finalMessage,
+                senderName: sanitizedSenderName
+              })
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+              addLog(`SERVER_RELAY: Signal broadcast via ${data.relay}`);
+              isSuccessfullySent = true;
+              usedRelay = data.relay;
+            } else {
+              const detailedError = data.details ? JSON.stringify(data.details) : (data.message || data.error);
+              failureReason = `RELAY_REJECTION: ${detailedError}`;
+              addLog(`SERVER_RELAY_WARN: ${failureReason}`);
             }
-          } else {
-            const detailedError = data.details ? JSON.stringify(data.details) : (data.message || data.error);
-            failureReason = `RELAY_REJECTION: ${detailedError}`;
-            addLog(`SERVER_RELAY_WARN: ${failureReason}`);
-          }
-        } catch (serverErr: any) {
-           const errorText = serverErr instanceof Error ? serverErr.message : String(serverErr);
-           failureReason = `NETWORK_ERR: ${errorText}`;
-           addLog(`RELAY_FAIL: Socket connection timeout. Arkesel online relay is mandatory.`);
-        }
-
-        // Automatic SMTP backup triggers if primary SMS gateway fails (or operates in simulation/fallback modes)
-        if (!smsGatewaySucceeded) {
-          addLog("BACKUP_PROTOCOL: Primary SMS gateway inactive or failed. Triggering secure automated email fallback...");
-          const emailBackupSent = await sendAutomatedEmailSOSAlerts(allContactsToNotify, userName, sosBody, locationObj);
-          if (emailBackupSent) {
-            isSuccessfullySent = true;
-            if (usedRelay === "UNKNOWN" || usedRelay === "SIMULATION_FALLBACK") {
-              usedRelay = "EMAIL_BACKUP_RELAY";
-            }
+          } catch (serverErr: any) {
+             const errorText = serverErr instanceof Error ? serverErr.message : String(serverErr);
+             failureReason = `NETWORK_ERR: ${errorText}`;
+             addLog(`RELAY_FAIL: Socket connection timeout. Arkesel online relay is mandatory.`);
           }
         } else {
-          // Parallel notification fallback as extra safeguard
-          addLog("EMAIL_RELAY: Initiating resilient email backup broadcast...");
-          await sendAutomatedEmailSOSAlerts(allContactsToNotify, userName, sosBody, locationObj);
+          addLog("SAFETY_RELAY_SKIP: No valid phone numbers found for SMS dispatch.");
         }
-      }
 
-      // ENSURE HISTORY LOGGING IS TRUTHFUL
+        // Unconditionally trigger the email alert system alongside SMS for maximum resilience
+        addLog("EMAIL_RELAY: Initiating resilient email backup broadcast...");
+        const emailSent = await sendAutomatedEmailSOSAlerts(allContactsToNotify, userName, sosBody, locationObj);
+        if (emailSent) {
+          isSuccessfullySent = true;
+          if (usedRelay === "UNKNOWN") {
+            usedRelay = "EMAIL_RELAY";
+          } else {
+            usedRelay = `${usedRelay} + EMAIL_RELAY`;
+          }
+        }
+        
+        // Log final outcome before trying to sync history
+        addLog(`SOS_BROADCAST_STATUS: ${isSuccessfullySent ? 'SUCCESS' : 'FAILURE'}`);
+      }
+      
+      if (!isSuccessfullySent) {
+        addLog("SOS_DISPATCH_FAILURE: No transmission methods succeeded.");
+      }
+    } catch (err) {
+      addLog(`ERROR: Broadcast failed - ${err}`);
+      isSuccessfullySent = false;
+    }
+
+    // ENSURE HISTORY LOGGING IS TRUTHFUL
+    try {
       addDoc(collection(db, 'sos_history'), {
         userId: currentUser.uid,
         timestamp: serverTimestamp(),
@@ -289,23 +305,28 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
         relay: usedRelay,
         location: locationObj,
         contactsNotified: allContactsToNotify.map(c => ({ name: c.name, phone: c.phone }))
-      }).catch(logErr => console.warn("HISTORY_SYNC_WARN:", logErr));
+      }).catch(logErr => {
+        console.error("HISTORY_SYNC_ERR:", logErr);
+        addLog("HISTORY_SYNC_ERR: Failed to sync history.");
+      });
       addLog("HISTORY: Cloud record established.");
 
-      addLog("DISPATCH: Emergency signals broadcast correctly.");
+      addLog("DISPATCH: Emergency signals broadcast processed.");
       
       const playEmergencySound = () => {
         try {
-          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const oscillator = ctx.createOscillator();
-          const gain = ctx.createGain();
-          oscillator.type = 'sine';
-          oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-          oscillator.connect(gain);
-          gain.connect(ctx.destination);
-          gain.gain.setValueAtTime(0.5, ctx.currentTime);
-          oscillator.start();
-          oscillator.stop(ctx.currentTime + 0.3);
+          if (currentProfile?.sirenEnabled) {
+              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = ctx.createOscillator();
+              const gain = ctx.createGain();
+              oscillator.type = 'square';
+              oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+              oscillator.connect(gain);
+              gain.connect(ctx.destination);
+              gain.gain.setValueAtTime(0.5, ctx.currentTime);
+              oscillator.start();
+              oscillator.stop(ctx.currentTime + 2.0);
+          }
         } catch (e) {
           console.warn("Audio Context failed to initialize:", e);
         }
@@ -345,11 +366,12 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
       return isSuccessfullySent;
     } catch (err) {
       addLog(`ERROR: Sync failed - ${err}`);
-      return false;
+      return isSuccessfullySent; // Return status instead of false
     } finally {
       isTriggering.current = false;
+      setIsEmergencyActive(false);
     }
-  }, [user, addLog]);
+  }, [user, addLog, sendAutomatedEmailSOSAlerts, setLastSOSConfirmed]);
 
   // Sensor Fusion Simulation (Accelerometer)
   useEffect(() => {
@@ -411,8 +433,12 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     setLastSOSConfirmed,
     checkInTimer,
     startCheckInTimer,
-    cancelCheckInTimer
-  }), [isArmed, setIsArmed, systemLogs, addLog, triggerSOS, sendAutomatedEmailSOSAlerts, micStatus, lastSOSConfirmed, checkInTimer, startCheckInTimer, cancelCheckInTimer]);
+    cancelCheckInTimer,
+    isEmergencyActive,
+    setIsEmergencyActive,
+    isContactModalOpen,
+    setIsContactModalOpen
+  }), [isArmed, setIsArmed, systemLogs, addLog, triggerSOS, sendAutomatedEmailSOSAlerts, micStatus, lastSOSConfirmed, checkInTimer, startCheckInTimer, cancelCheckInTimer, isEmergencyActive, setIsEmergencyActive, isContactModalOpen, setIsContactModalOpen]);
 
   return (
     <SafetyEngineContext.Provider value={contextValue}>

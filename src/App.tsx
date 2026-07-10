@@ -5,7 +5,6 @@ import { LocationProvider } from './contexts/LocationContext';
 import { SafetyEngineProvider } from './contexts/SafetyEngineContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import Layout from './components/Layout';
-import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import SOSPage from './pages/SOSPage';
 import ReportPage from './pages/ReportPage';
@@ -22,7 +21,8 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import SOSHistoryPage from './pages/SOSHistoryPage';
 import NetworkPage from './pages/NetworkPage';
 import MessagesPage from './pages/MessagesPage';
-import AcademyPage from './pages/AcademyPage';
+import SecurityPage from './pages/SecurityPage';
+import ConversationalHub from './pages/ConversationalHub';
 import { VoiceSentinel } from './components/VoiceSentinel';
 import { SecurityOverlay } from './components/SecurityOverlay';
 import { SOSSuccessModal } from './components/SOSSuccessModal';
@@ -33,13 +33,13 @@ export default function App() {
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'home': return <HomePage setActiveTab={setActiveTab} />;
+      case 'home': return <DashboardPage setActiveTab={setActiveTab} />;
       case 'map': return <MapPage />;
       case 'sos': return <SOSPage setActiveTab={setActiveTab} />;
       case 'report': return <ReportPage />;
       case 'settings': return <SettingsPage setActiveTab={setActiveTab} />;
       case 'trusted-contacts': return <TrustedContactsPage setActiveTab={setActiveTab} />;
-      case 'dashboard': return <DashboardPage setActiveTab={setActiveTab} />;
+      case 'security': return <SecurityPage setActiveTab={setActiveTab} />;
       case 'resources': return <ResourcesPage setActiveTab={setActiveTab} />;
       case 'offline-module': return <OfflineModule setActiveTab={setActiveTab} />;
       case 'check-in': return <CheckInPage />;
@@ -49,8 +49,8 @@ export default function App() {
       case 'sos-history': return <SOSHistoryPage setActiveTab={setActiveTab} />;
       case 'network': return <NetworkPage setActiveTab={setActiveTab} setSelectedId={setSelectedId} />;
       case 'messages': return <MessagesPage recipientId={selectedId || undefined} setActiveTab={setActiveTab} />;
-      case 'academy': return <AcademyPage setActiveTab={setActiveTab} />;
-      default: return <HomePage setActiveTab={setActiveTab} />;
+      case 'conversational-hub': return <ConversationalHub setActiveTab={setActiveTab} />;
+      default: return <DashboardPage setActiveTab={setActiveTab} />;
     }
   };
 

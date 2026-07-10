@@ -8,7 +8,6 @@ import {
   Settings, 
   ShieldAlert, 
   AlertTriangle,
-  User,
   LogOut,
   Plus,
   Activity,
@@ -29,7 +28,6 @@ import Onboarding from '../pages/Onboarding';
 
 import { GuardianLogo } from './GuardianLogo';
 import { useSafety } from '../contexts/SafetyEngineContext';
-import SOSConfirmationModal from './SOSConfirmationModal';
 import { triggerHaptic } from '../lib/haptics';
 
 interface NavItemProps {
@@ -110,7 +108,7 @@ export default function Layout({
 }) {
   const { user, profile, loading, isLocalMode } = useAuth();
   const { notifications, unreadCount, markAsRead, clearAll } = useNotifications();
-  const { triggerSOS, addLog } = useSafety();
+  const { triggerSOS, addLog, isEmergencyActive, isContactModalOpen } = useSafety();
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingConnectionCount, setPendingConnectionCount] = useState(0);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
@@ -191,7 +189,15 @@ export default function Layout({
   const isDarkPage = false;
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center transition-colors duration-500 overflow-hidden relative font-sans text-neutral-900 bg-neutral-100/60">
+    <div className={cn(
+      "min-h-screen w-screen flex items-center justify-center transition-colors duration-500 overflow-hidden relative font-sans text-neutral-900 bg-neutral-100/60",
+      isEmergencyActive && "animate-blink-red"
+    )}>
+      {/* CSS for blinking red */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes blink-red { 0%, 100% { background-color: #fca5a5; } 50% { background-color: #ef4444; } }
+        .animate-blink-red { animation: blink-red 0.5s infinite; }
+      `}} />
       {/* Premium ambient decorative glowing blur circles on laptop/desktop to elevate visual craft */}
       <div className="absolute top-[-10%] right-[-10%] w-[35%] h-[35%] bg-blue-500/[0.03] blur-[120px] pointer-events-none rounded-full" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[35%] h-[35%] bg-indigo-500/[0.03] blur-[120px] pointer-events-none rounded-full" />
@@ -238,37 +244,14 @@ export default function Layout({
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
           <SidebarNavItem icon={Home} label="Home Dashboard" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
           <SidebarNavItem icon={MapIcon} label="Tactical Map" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
-          <SidebarNavItem icon={Trophy} label="Safety Academy" active={activeTab === 'academy'} onClick={() => setActiveTab('academy')} />
           <SidebarNavItem icon={Users} label="Emergency Network" active={activeTab === 'network'} onClick={() => setActiveTab('network')} badgeCount={pendingConnectionCount} />
           <SidebarNavItem icon={MessageSquare} label="Encrypted Chats" active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} badgeCount={unreadMsgCount} />
+          <SidebarNavItem icon={AlertTriangle} label="SOS" active={activeTab === 'sos'} onClick={() => setActiveTab('sos')} />
           <SidebarNavItem icon={Settings} label="System Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </div>
 
-        {/* Pinned Desktop SOS Button (Always visible at bottom, never scrolls) */}
-        <div className="p-6 border-t border-neutral-100 bg-red-50/20 shrink-0">
-          <button
-            onClick={() => setActiveTab('sos')}
-            className={cn(
-              "w-full py-4 px-5 rounded-2xl transition-all duration-300 flex items-center justify-between border-2 font-display uppercase tracking-wider italic font-black text-xs relative overflow-hidden group shadow-lg shadow-red-500/10 hover:shadow-red-500/25 active:scale-[0.98]",
-              activeTab === 'sos' 
-                ? "bg-red-600 text-white border-red-600 shadow-red-600/30 animate-pulse" 
-                : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200"
-            )}
-          >
-            {/* Ambient Background Pulse on Hover */}
-            <div className="absolute inset-0 bg-gradient-to-r from-red-600/0 via-red-600/5 to-red-600/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-            
-            <div className="flex items-center gap-3 relative z-10">
-              <AlertTriangle size={18} className={cn("animate-bounce", activeTab === 'sos' ? "text-white" : "text-red-600")} />
-              <span className="pt-0.5">Tactical SOS</span>
-            </div>
-            <span className={cn(
-              "text-[9px] font-sans px-2 py-0.5 rounded-full relative z-10 font-bold",
-              activeTab === 'sos' ? "bg-white/20 text-white" : "bg-red-600/10 text-red-600"
-            )}>LIVE</span>
-          </button>
-        </div>
       </aside>
+
 
       {/* 2. MAIN WORKING REGION */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative z-10">
@@ -291,17 +274,13 @@ export default function Layout({
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Core Telemetry Toggle */}
-              <button 
-                onClick={() => setActiveTab('dashboard')}
-                className={cn(
-                  "p-3 rounded-2xl transition-all relative overflow-hidden group border",
-                  activeTab === 'dashboard' 
-                    ? "bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-500/25" 
-                    : "text-neutral-500 bg-white border-neutral-200/60 hover:bg-neutral-50"
-                )}
-              >
-                <Activity size={18} />
+              {/* Network button */}
+              <button onClick={() => setActiveTab('network')} className={cn("p-3 rounded-2xl transition-all border", activeTab === 'network' ? "bg-blue-600 text-white border-blue-600" : "text-neutral-500 bg-white border-neutral-200/60 hover:bg-neutral-50")}>
+                <Users size={18} />
+              </button>
+              {/* Messages button */}
+              <button onClick={() => setActiveTab('messages')} className={cn("p-3 rounded-2xl transition-all border", activeTab === 'messages' ? "bg-blue-600 text-white border-blue-600" : "text-neutral-500 bg-white border-neutral-200/60 hover:bg-neutral-50")}>
+                <MessageSquare size={18} />
               </button>
 
               {/* Notification Bell */}
@@ -340,16 +319,11 @@ export default function Layout({
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setActiveTab('dashboard')}
-              className={cn(
-                "p-2.5 rounded-[18px] transition-all relative overflow-hidden group",
-                activeTab === 'dashboard' 
-                  ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20" 
-                  : "text-neutral-500 hover:bg-neutral-100"
-              )}
-            >
-              <Activity size={20} />
+            <button onClick={() => setActiveTab('network')} className={cn("p-2.5 rounded-[18px] transition-all", activeTab === 'network' ? "bg-blue-600 text-white" : "text-neutral-500 hover:bg-neutral-100")}>
+              <Users size={20} />
+            </button>
+            <button onClick={() => setActiveTab('messages')} className={cn("p-2.5 rounded-[18px] transition-all", activeTab === 'messages' ? "bg-blue-600 text-white" : "text-neutral-500 hover:bg-neutral-100")}>
+              <MessageSquare size={20} />
             </button>
             <button 
               onClick={() => setShowNotifications(!showNotifications)}
@@ -462,98 +436,24 @@ export default function Layout({
           <nav className="max-w-md mx-auto border border-neutral-200/50 backdrop-blur-3xl rounded-[32px] sm:rounded-[44px] p-1.5 sm:p-2 flex items-center justify-between sm:justify-around gap-1 sm:gap-2 bg-white/95 shadow-[0_32px_64px_rgba(0,0,0,0.08)]">
             <NavItem icon={Home} label="Home" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
             <NavItem icon={MapIcon} label="Map" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
-            <NavItem icon={Trophy} label="Academy" active={activeTab === 'academy'} onClick={() => setActiveTab('academy')} />
             
-            {/* Quick SOS Trigger */}
-            <div className="relative -mt-10 sm:-mt-12">
-              <motion.div
-                animate={{ 
-                  scale: [1, 1.1, 1],
-                  rotate: [0, 5, -5, 0]
-                }}
-                transition={{ 
-                  duration: 4, 
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="absolute inset-0 bg-red-500/20 rounded-full blur-2xl scale-150"
-              />
-              <motion.button
-                whileHover={{ scale: 1.15, y: -5 }}
-                whileTap={{ scale: 0.9, rotate: -5 }}
-                onClick={() => setActiveTab('sos')}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] sm:rounded-[24px] flex items-center justify-center transition-all border-4 relative overflow-hidden group border-white shadow-[0_16px_40px_rgba(220,38,38,0.3)] bg-red-600 text-white"
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_white_0%,_transparent_70%)] opacity-10 animate-pulse" />
-                <motion.div 
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 opacity-20"
-                >
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-white via-transparent to-transparent" />
-                </motion.div>
-                
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/10" />
-                
-                <div className="relative z-10 flex flex-col items-center gap-0.5 sm:gap-1">
-                  <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
-                  <span className="text-[7px] sm:text-[8px] font-black tracking-[0.2em] uppercase italic opacity-80">SOS</span>
-                </div>
+            <button
+              onClick={() => setActiveTab('sos')}
+              className={cn(
+                "relative -mt-10 p-4 rounded-full shadow-lg shadow-red-500/30 border-4 border-white transition-all duration-300",
+                activeTab === 'sos' ? "bg-red-700 scale-105" : "bg-red-600"
+              )}
+            >
+              <AlertTriangle size={24} />
+            </button>
 
-                <motion.div 
-                  animate={{ scale: [1, 2], opacity: [0.5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 rounded-full bg-red-400"
-                />
-              </motion.button>
-            </div>
-            
-            <NavItem icon={Users} label="Network" active={activeTab === 'network'} onClick={() => setActiveTab('network')} badgeCount={pendingConnectionCount} />
-            <NavItem icon={MessageSquare} label="Messages" active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} badgeCount={unreadMsgCount} />
+            <NavItem icon={ShieldAlert} label="AI" active={activeTab === 'security'} onClick={() => setActiveTab('security')} />
             <NavItem icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
           </nav>
         </div>
 
-        {/* Universal High-Visibility Floating Action Button (FAB) for SOS Trigger */}
-        {activeTab !== 'sos' && (
-          <div className="fixed bottom-24 right-5 md:bottom-8 md:right-8 z-[100]">
-            <motion.div 
-              initial={{ scale: 0.8, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="relative group"
-            >
-              {/* Pulsing Outer Aura */}
-              <div className="absolute -inset-2 bg-gradient-to-r from-red-600 to-orange-500 rounded-full blur-xl opacity-75 group-hover:opacity-100 group-hover:-inset-3 transition-all duration-500 animate-pulse pointer-events-none" />
-              
-              <button
-                onClick={() => {
-                  triggerHaptic(100);
-                  setIsConfirmingSOS(true);
-                }}
-                className="relative flex items-center justify-center gap-2 px-5 py-4 md:px-6 md:py-4 rounded-full bg-gradient-to-br from-red-600 via-red-700 to-orange-600 text-white font-display font-black tracking-widest text-xs uppercase italic shadow-[0_8px_32px_rgba(220,38,38,0.4)] hover:shadow-[0_12px_40px_rgba(220,38,38,0.6)] border border-red-400/30 hover:border-white/40 active:scale-95 transition-all duration-300 cursor-pointer"
-              >
-                {/* Internal Pulsing Indicator */}
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
-                </span>
-                
-                <ShieldAlert className="w-5 h-5 animate-bounce" />
-                
-                <span className="pt-0.5">TACTICAL SOS</span>
-              </button>
-            </motion.div>
-          </div>
-        )}
 
         {/* Swipe Slide to Confirm SOS Dialog */}
-        <SOSConfirmationModal 
-          isOpen={isConfirmingSOS}
-          onClose={() => setIsConfirmingSOS(false)}
-          onConfirm={handleBroadcast}
-          emergencyContactsCount={profile?.emergencyContacts?.length || 0}
-        />
 
       </div>
     </div>

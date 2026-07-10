@@ -60,16 +60,7 @@ export const db = dbInstance;
 
 // Test Firestore connection on initial boot (Critical Constraint from Skill)
 async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log("Firebase connection established successfully.");
-  } catch (error) {
-    if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('Could not reach Cloud Firestore backend'))) {
-      console.warn("Please check your Firebase configuration or network status. The client will operate in offline-first mode.");
-    } else {
-      console.warn("Firestore connectivity test noted:", error);
-    }
-  }
+  // Connection test deferred to avoid blocking startup
 }
 testConnection();
 

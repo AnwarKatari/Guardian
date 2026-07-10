@@ -31,10 +31,13 @@ export default function TrustedContactsPage({ setActiveTab }: { setActiveTab?: (
   );
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const [priority, setPriority] = useState<'primary' | 'secondary'>('primary');
+
   const resetForm = () => {
     setName('');
     setPhone('');
     setContactEmail('');
+    setPriority('primary');
     setEditingContact(null);
     const defaultCode = COUNTRIES.find(c => c.code === (profile?.countryCode || 'GH'))?.dialCode || '+233';
     setCountryCode(defaultCode);
@@ -45,6 +48,7 @@ export default function TrustedContactsPage({ setActiveTab }: { setActiveTab?: (
     setEditingContact(contact);
     setName(contact.name);
     setContactEmail(contact.email || '');
+    setPriority(contact.priority || 'primary');
     
     // Try to extract country code from existing phone
     const match = COUNTRIES.find(c => contact.phone.startsWith(c.dialCode));
@@ -58,7 +62,7 @@ export default function TrustedContactsPage({ setActiveTab }: { setActiveTab?: (
     setIsAdding(true);
   };
 
-  const saveContact = async (contactData?: { name: string, phone: string, email?: string, forcedPrefix?: string }) => {
+  const saveContact = async (contactData?: { name: string, phone: string, email?: string, priority?: 'primary' | 'secondary', forcedPrefix?: string }) => {
     if (!user) return;
     
     if (!editingContact && (profile?.emergencyContacts?.length || 0) >= 3) {
@@ -69,6 +73,7 @@ export default function TrustedContactsPage({ setActiveTab }: { setActiveTab?: (
     let finalName = contactData?.name || name;
     let finalPhone = contactData?.phone || phone;
     let finalEmail = contactData?.email !== undefined ? contactData.email : contactEmail;
+    let finalPriority = contactData?.priority || priority;
 
     if (!finalName || !finalPhone) return;
 
@@ -94,7 +99,7 @@ export default function TrustedContactsPage({ setActiveTab }: { setActiveTab?: (
       if (editingContact) {
         // Update existing: Remove old, add new (Firestore arrayUnion is easiest for simple lists)
         const updatedContacts = profile?.emergencyContacts?.map(c => 
-          c.id === editingContact.id ? { ...c, name: finalName, phone: finalPhone, email: finalEmail } : c
+          c.id === editingContact.id ? { ...c, name: finalName, phone: finalPhone, email: finalEmail, priority: finalPriority } : c
         ) || [];
         
         await updateDoc(userRef, {
@@ -107,6 +112,7 @@ export default function TrustedContactsPage({ setActiveTab }: { setActiveTab?: (
           name: finalName,
           phone: finalPhone,
           email: finalEmail,
+          priority: finalPriority,
           isVerified: true
         };
         await updateDoc(userRef, {
@@ -348,6 +354,20 @@ export default function TrustedContactsPage({ setActiveTab }: { setActiveTab?: (
                       onChange={(e) => setPhone(e.target.value)}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-blue-600 uppercase tracking-widest ml-4 italic flex items-center gap-2">
+                    <ShieldCheck size={10} /> Priority
+                  </label>
+                  <select
+                    className="w-full p-6 bg-neutral-50 rounded-[24px] border border-neutral-100 focus:border-blue-600 focus:bg-white transition-all font-black uppercase tracking-tighter text-sm italic cursor-pointer"
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as 'primary' | 'secondary')}
+                  >
+                    <option value="primary">Primary</option>
+                    <option value="secondary">Secondary</option>
+                  </select>
                 </div>
 
                 <div className="space-y-2">

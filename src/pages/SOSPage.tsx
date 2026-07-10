@@ -600,7 +600,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
         </div>
      
         {/* Right Column: Action Panels & Critical Safe Controls */}
-        <div className="lg:col-span-6 w-full">
+        <div className="lg:col-span-6 w-full flex flex-col h-full">
           <AnimatePresence mode="wait">
             {!isAlertActive ? (
               <motion.div 
@@ -610,7 +610,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                 exit={{ y: 20, opacity: 0 }}
                 className="space-y-4 w-full"
               >
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mt-auto">
                   <button 
                     onClick={() => {
                       if (checkInTimer.isActive) cancelCheckInTimer();
@@ -647,7 +647,7 @@ export default function SOSPage({ setActiveTab }: { setActiveTab?: (tab: string)
                   </button>
                 </div>
 
-                <div className="bg-white border border-neutral-100 rounded-[40px] p-6 shadow-sm space-y-4">
+                <div className="bg-white border border-neutral-100 rounded-[40px] p-6 shadow-sm space-y-4 mt-auto">
                   <div className="flex items-center gap-3 px-2">
                     <div className="w-1.5 h-3.5 bg-red-600 rounded-full animate-pulse" />
                     <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 italic">Emergency Hub Contacts</h3>

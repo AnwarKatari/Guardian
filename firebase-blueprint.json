@@ -233,6 +233,17 @@
         "read": { "type": "boolean" }
       },
       "required": ["senderId", "receiverId", "content", "timestamp"]
+    },
+    "OTP": {
+      "title": "OTP",
+      "description": "One-Time Password for email verification",
+      "type": "object",
+      "properties": {
+        "otp": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["otp", "createdAt", "expiresAt"]
     }
   },
   "firestore": {
@@ -267,6 +278,10 @@
     "messages": {
       "schema": "Message",
       "description": "Private messages between operators"
+    },
+    "otps": {
+      "schema": "OTP",
+      "description": "Verification OTPs"
     },
     "system_logs": {
       "schema": "object",

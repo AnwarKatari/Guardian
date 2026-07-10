@@ -251,9 +251,20 @@ service cloud.firestore {
       allow list, update: if false;
     }
 
+    // OTPs for email verification
+    match /otps/{email} {
+      allow read, write: if true;
+    }
+
     // Simulated email logs for fallback monitoring
     match /simulated_emails/{emailId} {
       allow create: if true;
+      allow read, update, delete: if false;
+    }
+
+    // Simulated SMS logs for fallback monitoring
+    match /simulated_sms/{smsId} {
+      allow write: if true;
       allow read, update, delete: if false;
     }
 

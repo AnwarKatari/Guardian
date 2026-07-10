@@ -8,18 +8,31 @@ import {
   MapPin, 
   Clock,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { cn } from '../lib/utils';
 import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import L from 'leaflet';
+
+// Fix for default marker icons in Leaflet with React
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 export default function SOSHistoryPage({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const { user } = useAuth();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -58,6 +71,40 @@ export default function SOSHistoryPage({ setActiveTab }: { setActiveTab: (tab: s
     }
   };
 
+  const filteredHistory = history.filter(log => {
+    if (!searchQuery.trim()) return true;
+    const queryLower = searchQuery.toLowerCase().trim();
+
+    // 1. Check formatted date
+    let dateStr = '';
+    if (log.timestamp?.seconds) {
+      dateStr = format(new Date(log.timestamp.seconds * 1000), 'MMM d, yyyy · HH:mm').toLowerCase();
+    } else {
+      dateStr = 'time_unknown';
+    }
+
+    // 2. Check coordinates/location
+    let locStr = '';
+    if (log.location && typeof log.location.lat === 'number' && typeof log.location.lng === 'number') {
+      locStr = `${log.location.lat.toFixed(4)}, ${log.location.lng.toFixed(4)}`.toLowerCase();
+    }
+
+    // 3. Check incident body message / type
+    const msgStr = (log.message || '').toLowerCase();
+    const reasonStr = (log.reason || '').toLowerCase();
+    const statusStr = (log.status || '').toLowerCase();
+    const relayStr = (log.relay || '').toLowerCase();
+
+    return (
+      dateStr.includes(queryLower) ||
+      locStr.includes(queryLower) ||
+      msgStr.includes(queryLower) ||
+      reasonStr.includes(queryLower) ||
+      statusStr.includes(queryLower) ||
+      relayStr.includes(queryLower)
+    );
+  });
+
   return (
     <div className="h-full bg-white text-neutral-900 flex flex-col font-sans overflow-hidden">
       {/* Header */}
@@ -76,6 +123,30 @@ export default function SOSHistoryPage({ setActiveTab }: { setActiveTab: (tab: s
         </div>
         <History size={20} className="text-blue-600 animate-pulse" />
       </header>
+
+      {/* Search Bar - Under header */}
+      {!loading && history.length > 0 && (
+        <div className="px-6 pt-4 pb-2 bg-white border-b border-neutral-50 z-10 shadow-[0_2px_5px_rgba(0,0,0,0.01)]">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-blue-600 transition-colors" size={16} />
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter logs by date, location coordinates, status..."
+              className="w-full h-11 bg-neutral-50 border border-neutral-200 rounded-2xl pl-11 pr-14 text-xs focus:bg-white focus:border-blue-600 outline-none transition-all placeholder:text-neutral-400 font-bold tracking-tight text-neutral-900 shadow-sm"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto px-6 py-8 relative">
@@ -97,9 +168,19 @@ export default function SOSHistoryPage({ setActiveTab }: { setActiveTab: (tab: s
               <p className="text-[9px] text-neutral-300 font-bold uppercase tracking-widest max-w-[200px]">No distress signals have been synchronized with the cloud network.</p>
             </div>
           </div>
+        ) : filteredHistory.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 gap-6 text-center italic">
+            <div className="w-16 h-16 bg-neutral-50 text-neutral-300 rounded-3xl flex items-center justify-center border border-neutral-100">
+              <Search size={32} strokeWidth={1.5} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-black uppercase text-neutral-400 tracking-tighter">No_Matching_Logs</p>
+              <p className="text-[9px] text-neutral-300 font-bold uppercase tracking-widest max-w-[240px]">No logs matched your search filters. Try matching by coordinates, month, or status keywords.</p>
+            </div>
+          </div>
         ) : (
           <div className="space-y-4 relative z-10">
-            {history.map((log, i) => (
+            {filteredHistory.map((log, i) => (
               <motion.div 
                 key={log.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -151,7 +232,21 @@ export default function SOSHistoryPage({ setActiveTab }: { setActiveTab: (tab: s
                     </div>
                   )}
                   {log.location && typeof log.location.lat === 'number' && (
-                    <div className="flex items-center gap-3 pt-2 border-t border-neutral-100">
+                    <div className="h-32 w-full rounded-xl overflow-hidden mt-3 border border-neutral-100">
+                      <MapContainer 
+                        center={[log.location.lat, log.location.lng]} 
+                        zoom={14} 
+                        className="h-full w-full"
+                        zoomControl={false}
+                        scrollWheelZoom={false}
+                      >
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <Marker position={[log.location.lat, log.location.lng]} />
+                      </MapContainer>
+                    </div>
+                  )}
+                  {log.location && typeof log.location.lat === 'number' && (
+                    <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
                       <MapPin size={14} className="text-blue-500 shrink-0" />
                       <p className="text-[10px] text-blue-600 font-black uppercase tracking-tighter italic">
                         Coord: {log.location.lat.toFixed(4)}, {log.location.lng.toFixed(4)}

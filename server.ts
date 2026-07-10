@@ -11,7 +11,7 @@ import { getAuth, Auth } from "firebase-admin/auth";
 import { SMSAuthService } from "./src/lib/SMSAuthService";
 import fs from "fs";
 import { Resend } from "resend";
-import nodemailer from "nodemailer";
+import * as nodemailer from "nodemailer";
 import crypto from "crypto";
 
 dotenv.config();
@@ -59,69 +59,31 @@ try {
   console.error("[FIREBASE_ADMIN_INIT_ERR]", adminInitErr);
 }
 
+// Global map for SMS cooldown tracking: phone -> lastSentTimestamp
+const lastSmsSent = new Map<string, number>();
+const SMS_COOLDOWN_MS = 1000;
+
 // SYSTEM_KEY: Ai-POWERED Tactical Relay Key
 const SMS_KEY = process.env.SMS_ONLINE_GH_KEY;
 
 // Initialize AI if key exists
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-
-// Reusable Nodemailer Transporter
-const getTransporter = () => {
-  const host = process.env.SMTP_HOST?.replace(/^['"]|['"]$/g, '').trim();
-  const port = parseInt((process.env.SMTP_PORT || "465").replace(/^['"]|['"]$/g, '').trim());
-  const user = process.env.SMTP_USER?.replace(/^['"]|['"]$/g, '').trim();
-  const pass = process.env.SMTP_PASS?.replace(/^['"]|['"]$/g, '').trim();
-
-  // if (host && user && pass) {
-  //   return nodemailer.createTransport({
-  //     host,
-  //     port,
-  //     secure: port === 465,
-  //     auth: { user, pass }
-  //   });
-  // }
-  return null;
-};
-
-// HELPER: Send email using SMTP with Resend API fallback
-async function sendEmail(to: string, subject: string, html: string, from: string = 'SafetyAlert <onboarding@resend.dev>'): Promise<boolean> {
-  const transporter = getTransporter();
-  
-  // Try SMTP first
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from: from.replace('onboarding@resend.dev', process.env.SMTP_USER || 'benjaminrose5050@gmail.com'),
-        to,
-        subject,
-        html
-      });
-      console.log(`[SMTP_SUCCESS] Email sent to ${to}`);
-      return true;
-    } catch (smtpErr: any) {
-      console.error("[SMTP_ERR] Failed to send SMTP email, trying Resend fallback:", smtpErr.message);
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
     }
   }
+}) : null;
 
-  // Fallback to Resend
-  if (resend) {
-    try {
-      await resend.emails.send({
-        from,
-        to,
-        subject,
-        html
-      });
-      console.log(`[RESEND_SUCCESS] Email sent to ${to} via Resend fallback`);
-      return true;
-    } catch (resendErr) {
-      console.error("[RESEND_ERR] Fallback Resend email also failed:", resendErr);
-    }
-  }
-  
-  console.log(`[EMAIL_SIMULATION] Fallback failed. To: ${to}\nSubject: ${subject}`);
-  return false;
+// HELPER: Send notification using SMS (replacing SMTP)
+async function sendSmsNotification(phoneNumbers: string[], message: string): Promise<boolean> {
+  const result = await sendTacticalSms(phoneNumbers, message, "SafetyAlert");
+  return result.success;
 }
+
+// HELPER: Fetch user profile by email using Firestore REST API with the public API key.
+// ... (rest of the file)
 
 // HELPER: Fetch user profile by email using Firestore REST API with the public API key.
 // This completely bypasses any gRPC PERMISSION_DENIED errors caused by server IAM limitations in the sandbox container.
@@ -260,10 +222,8 @@ async function getOtp(email: string): Promise<any> {
 
 // HELPER: Delete OTP for an email
 async function deleteOtp(email: string): Promise<void> {
-  const deleted = inMemoryOTPs.delete(email.toLowerCase().trim());
-  if (deleted) {
-    console.log(`[IN_MEMORY_SUCCESS] Successfully cleaned up OTP for ${email}.`);
-  }
+  inMemoryOTPs.delete(email.toLowerCase().trim());
+  console.log(`[IN_MEMORY_SUCCESS] Successfully cleaned up OTP for ${email}.`);
 }
 
 // HELPER: Log simulated emails cleanly without blocking network operations.
@@ -288,9 +248,21 @@ async function sendTacticalSms(phoneNumbers: string[], message: string, senderNa
   };
 
   const normalizedNumbers = phoneNumbers.map(normalizeGH).filter(n => n.length >= 10);
-  if (normalizedNumbers.length === 0) {
-    return { success: false, relayUsed: "", error: new Error("No valid phone numbers detected") };
+  
+  // Filter out numbers on cooldown
+  const now = Date.now();
+  const eligibleNumbers = normalizedNumbers.filter(num => {
+    const lastSent = lastSmsSent.get(num) || 0;
+    return (now - lastSent) > SMS_COOLDOWN_MS;
+  });
+
+  if (eligibleNumbers.length === 0) {
+    console.log(`[TACTICAL_SMS_COOLDOWN] All numbers on cooldown.`);
+    return { success: true, relayUsed: "COOLDOWN" };
   }
+
+  // Update cooldown map
+  eligibleNumbers.forEach(num => lastSmsSent.set(num, now));
 
   const sanitizeSenderId = (name: string) => {
     if (!name) return "SafetyAlert";
@@ -316,11 +288,11 @@ async function sendTacticalSms(phoneNumbers: string[], message: string, senderNa
       console.log(`[TACTICAL_SMS_ARKESEL] Attempting dispatch via V2 with sender: ${tacticalSender}`);
       const response = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
         sender: tacticalSender,
-        recipients: normalizedNumbers,
+        recipients: eligibleNumbers,
         message: message
       }, {
         headers: { 'api-key': arkeselKey },
-        timeout: 12000
+        timeout: 15000 // Increased timeout for reliability
       });
 
       const resData = response.data;
@@ -331,61 +303,14 @@ async function sendTacticalSms(phoneNumbers: string[], message: string, senderNa
       } else {
         console.warn("[TACTICAL_SMS_WARN] Arkesel rejected request:", JSON.stringify(resData));
         lastErrorDetails = resData;
-
-        if (tacticalSender !== "Arkesel") {
-          try {
-            console.log(`[TACTICAL_SMS_ARKESEL] Fallback with default sender 'Arkesel'...`);
-            const fbRes = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
-              sender: "Arkesel",
-              recipients: normalizedNumbers,
-              message: message
-            }, {
-              headers: { 'api-key': arkeselKey },
-              timeout: 10000
-            });
-            
-            if (fbRes.data && (fbRes.data.status === "success" || fbRes.data.code === 1000)) {
-              success = true;
-              relayUsed = "ARKESEL_v2_FALLBACK";
-              console.log(`[TACTICAL_SMS_SUCCESS] Arkesel fallback successful.`);
-            }
-          } catch (innerE) {
-             console.error("[TACTICAL_SMS_FAILED] Arkesel fallback also failed.");
-          }
-        }
       }
     } catch (e: any) {
       lastErrorDetails = e.response?.data || { message: e.message };
       console.error("[TACTICAL_SMS_ERR] Arkesel primary failed:", JSON.stringify(lastErrorDetails));
     }
-  }
-
-  // 2. SMS Online GH
-  if (!success && smsOnlineKey) {
-    try {
-      console.log(`[TACTICAL_SMS_SMSONLINE] Attempting dispatch via SMS Online GH...`);
-      const response = await axios.post(`https://api.smsonlinegh.com/v4/message/sms/send`, {
-        text: message,
-        destinations: normalizedNumbers,
-        sender: tacticalSender.substring(0, 11)
-      }, {
-        headers: { 
-          'Authorization': `Bearer ${smsOnlineKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 12000
-      });
-
-      if (response.status === 200 || response.status === 201) {
-        success = true;
-        relayUsed = "SMS_ONLINE_GH";
-        console.log(`[TACTICAL_SMS_SUCCESS] SMS Online GH dispatch confirmed.`);
-      }
-    } catch (e: any) {
-      const errData = e.response?.data || e.message;
-      console.error("[TACTICAL_SMS_ERR] SMS Online GH failed:", JSON.stringify(errData));
-      if (!lastErrorDetails) lastErrorDetails = errData;
-    }
+  } else {
+    console.log(`[TACTICAL_SMS_SIMULATION] No Arkesel API key detected.`);
+    return { success: false, relayUsed: "SIMULATION", error: new Error("No Arkesel gateway key found") };
   }
 
   return { success, relayUsed, error: success ? undefined : lastErrorDetails };
@@ -399,7 +324,7 @@ async function startServer() {
 
   // SEND SIGN-UP/SIGN-IN VERIFICATION OTP (SERVER-SIDE)
   app.post("/api/auth/send-otp", async (req, res) => {
-    const { email, password, displayName, type = "signup" } = req.body;
+    const { email, password, displayName, phoneNumber, type = "signup" } = req.body;
     if (!email) {
       return res.status(400).json({ status: "error", message: "Email is required." });
     }
@@ -420,7 +345,7 @@ async function startServer() {
             email: emailClean,
             password: password,
             returnSecureToken: true
-          });
+          }, { timeout: 8000 });
           
           if (verifyRes.data && verifyRes.data.displayName) {
             name = verifyRes.data.displayName;
@@ -514,84 +439,36 @@ async function startServer() {
         </div>
       `;
 
-      // 5. Determine configuration & send instantly (Non-blocking / Background dispatch)
-      // This ensures Railway hosting has absolute zero timeouts, and the user transitions
-      // to the OTP screen immediately without waiting on slow SMS gateways.
-      const hasSmtp = !!resend;
-      const arkeselKey = process.env.ARKESEL_API_KEY || process.env.ARKESEL_API_KEY;
-      const smsOnlineKey = process.env.SMS_ONLINE_GH_KEY || process.env.SMS_ONLINE_GH_KEY;
-      const hasSms = !!(arkeselKey || smsOnlineKey);
+      // 5. Determine configuration & send via Arkesel
       
-      const isSimulated = !hasSmtp && !hasSms;
+      if (!process.env.ARKESEL_API_KEY) {
+        return res.status(500).json({ status: "error", message: "SMS API key is not configured." });
+      }
 
-      // First response payload
-      if (isSimulated) {
+      // Resolve phone number
+      const userProfile = await fetchUserByEmailFromRest(emailClean);
+      const phoneNumberFinal = phoneNumber || req.body.phoneNumber || userProfile?.phoneNumber;
+      
+      if (!phoneNumberFinal) {
+         return res.status(400).json({ status: "error", message: "Phone number is required." });
+      }
+
+      try {
+        await axios.post('https://sms.arkesel.com/api/v2/sms/send', {
+          sender: 'SafetyAlert',
+          message: `Your verification code is ${otp}`,
+          recipients: [phoneNumberFinal]
+        }, {
+          headers: { 'api-key': process.env.ARKESEL_API_KEY }
+        });
+
         res.json({
           status: "success",
-          sentReal: false,
-          sentRealEmail: false,
-          sentRealSms: false,
-          smsRelayUsed: "",
-          simulated: true,
-          otp: otp,
-          message: `DEMO MODE: SMTP/SMS is not configured. Use verification OTP: ${otp} to proceed.`
+          message: `A 6-digit verification code has been dispatched to your phone.`
         });
-
-        // Simulating the email save in Firestore in the background
-        if (adminDb) {
-          adminDb.collection("simulated_emails").add({
-            to: emailClean,
-            subject: mailSubject,
-            html: mailHtml,
-            type: isLogin ? "login_otp" : "signup_otp",
-            timestamp: new Date().toISOString()
-          }).catch((dbErr: any) => {
-            console.warn(`[SERVER_AUTH_DB_WARN] Failed to write simulated OTP email to Firestore: ${dbErr.message}`);
-          });
-        }
-      } else {
-        // Real dispatch - Respond immediately to keep browser active and prevent timeouts
-        res.json({
-          status: "success",
-          sentReal: true,
-          sentRealEmail: false,
-          sentRealSms: true,
-          smsRelayUsed: "",
-          simulated: false,
-          message: `A 6-digit verification code has been dispatched to your phone number via SMS. Please check your messages.`
-        });
-
-        // Trigger real delivery in the background (fire-and-forget)
-        (async () => {
-          // Resolve phone number upfront so we can dispatch instantly
-          let resolvedPhone: string | null = null;
-          if (req.body.phoneNumber) {
-            resolvedPhone = req.body.phoneNumber;
-          } else {
-            try {
-              const userProfile = await fetchUserByEmailFromRest(emailClean);
-              if (userProfile && userProfile.phoneNumber) {
-                resolvedPhone = userProfile.phoneNumber;
-                console.log(`[SERVER_AUTH_BG] Resolved phone number from user profile: ${resolvedPhone}`);
-              }
-            } catch (profileErr: any) {
-              console.warn(`[SERVER_AUTH_BG_PHONE_LOOKUP_WARN] Failed fetching phone number from Firestore:`, profileErr.message);
-            }
-          }
-
-          if (resolvedPhone) {
-            const smsResult = await SMSAuthService.sendVerificationCode(resolvedPhone, otp);
-            if (smsResult.success) {
-              console.log(`[SERVER_AUTH_BG] Verification OTP SMS sent to ${resolvedPhone}`);
-            } else {
-              console.error("[SERVER_AUTH_BG_SMS_ERR] Failed to send real API SMS:", smsResult.error);
-            }
-          } else {
-            console.error(`[SERVER_AUTH_BG_SMS_ERR] No phone number resolved for OTP dispatch to ${emailClean}`);
-          }
-        })().catch((bgErr: any) => {
-          console.error("[SERVER_AUTH_BG_THREAD_ERR] Background thread error:", bgErr);
-        });
+      } catch (smsError: any) {
+        console.error("[AUTH_API_ERR] Failed to send SMS via Arkesel:", smsError.response?.data || smsError.message);
+        return res.status(500).json({ status: "error", message: "Failed to dispatch verification OTP." });
       }
 
     } catch (error: any) {
@@ -632,6 +509,7 @@ async function startServer() {
       }
 
       if (otpClean !== otpData.otp) {
+        console.log(`[SERVER_AUTH] OTP mismatch for ${emailClean}. Expected: ${otpData.otp}, Received: ${otpClean}`);
         return res.status(400).json({
           status: "error",
           message: "The verification code is incorrect. Verification failed."
@@ -848,14 +726,15 @@ async function startServer() {
       `;
 
       // Attempt to send via API
-      const sentReal = await sendEmail(emailClean, mailSubject, mailHtml, `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`);
+      const userData = await fetchUserByEmailFromRest(emailClean);
+      const phoneNumber = userData?.phone;
+      const sentReal = phoneNumber ? await sendSmsNotification([phoneNumber], `Password reset link: ${resetLink}`) : false;
+      const smsMessage = `Password reset link: ${resetLink}`;
       
       if (!sentReal) {
-        console.log(`[SERVER_AUTH] [SIMULATION] Custom reset email for ${emailClean}:\nSubject: ${mailSubject}\nLink: ${resetLink}`);
-        // Save simulation log using our secure REST fallback helper
-        await saveSimulatedEmailToRest(emailClean, mailSubject, mailHtml, resetLink);
+        console.log(`[SERVER_AUTH] [SIMULATION] Custom reset SMS for ${emailClean}:\nMessage: ${smsMessage}`);
       } else {
-         console.log(`[SERVER_AUTH] Custom reset email sent via API to ${emailClean}`);
+         console.log(`[SERVER_AUTH] Custom reset SMS sent via API to ${emailClean}`);
       }
 
       res.json({
@@ -936,8 +815,8 @@ async function startServer() {
     }
   });
 
-  // NOTIFY AUTH (WELCOME / SIGN-IN NOTIFICATIONS)
-  app.post("/api/email/notify-auth", async (req, res) => {
+  // NOTIFY AUTH (WELCOME / SIGN-IN NOTIFICATIONS - SMS)
+  app.post("/api/notification/notify-auth", async (req, res) => {
     const { email, type, displayName } = req.body;
     if (!email || !type) {
       return res.status(400).json({ status: "error", message: "Email and notification type are required." });
@@ -946,64 +825,32 @@ async function startServer() {
     try {
       const emailClean = email.trim();
       const name = displayName || "User";
-      let mailSubject = "";
-      let mailHtml = "";
+      
+      const userData = await fetchUserByEmailFromRest(emailClean);
+      const phoneNumber = userData?.phone;
+
+      if (!phoneNumber) {
+        console.warn(`[SERVER_NOTIFY] No phone number found for ${emailClean}, cannot send SMS notification.`);
+        return res.status(400).json({ status: "error", message: "User phone number not found." });
+      }
+
+      let message = "";
 
       if (type === "signup") {
-        mailSubject = "Welcome to AI-POWERED HUMAN SAFETY ALERT!";
-        mailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 8px;">
-            <h2 style="color: #2563eb; font-weight: 800; text-transform: uppercase; margin-top: 0; font-size: 18px;">Welcome to AI-POWERED HUMAN SAFETY ALERT</h2>
-            <p>Hello ${name},</p>
-            <p>Welcome to AI-POWERED HUMAN SAFETY ALERT! Your account has been successfully registered on our secure platform.</p>
-            <p>We are dedicated to ensuring your safety with our tactical emergency relays, real-time tracking, and AI-powered threat analysis.</p>
-            <div style="margin: 20px 0; background-color: #f3f4f6; padding: 15px; border-radius: 6px; font-size: 13px;">
-              <strong>Pro-Tip:</strong> Please ensure that you navigate to the <strong>Trusted Contacts</strong> tab to add your priority emergency contacts. This ensures they can receive instant SMS and email alerts if you ever trigger an SOS.
-            </div>
-            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 20px 0;" />
-            <p style="font-size: 11px; color: #9ca3af; margin: 0;">Thanks,<br/>Your AI-POWERED HUMAN SAFETY ALERT team</p>
-          </div>
-        `;
+        message = `Welcome to Guardian, ${name}! Your account is now secure and active. You are now part of a community dedicated to advanced safety.`;
       } else if (type === "signin") {
         const timeStr = new Date().toLocaleString("en-US", { timeZone: "UTC" });
-        mailSubject = "AI-Powered Human Safety Alert - Successful Sign-In Detected";
-        mailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 8px;">
-            <h2 style="color: #2563eb; font-weight: 800; text-transform: uppercase; margin-top: 0; font-size: 18px;">Sign-In Alert</h2>
-            <p>Hello ${name},</p>
-            <p>This is a verification notice that a successful sign-in to your AI-POWERED HUMAN SAFETY ALERT account was detected.</p>
-            <div style="background-color: #f9fafb; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 12px; margin: 15px 0;">
-              <strong>Email:</strong> ${emailClean}<br/>
-               <strong>Time (UTC):</strong> ${timeStr}
-            </div>
-            <p>If this was you, no action is required. If you did not perform this action, please secure your account credentials immediately.</p>
-            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 20px 0;" />
-            <p style="font-size: 11px; color: #9ca3af; margin: 0;">Thanks,<br/>Your AI-POWERED HUMAN SAFETY ALERT team</p>
-          </div>
-        `;
+        message = `Guardian Sign-In Detected for ${emailClean} at ${timeStr} (UTC).`;
       } else {
         return res.status(400).json({ status: "error", message: "Invalid notification type." });
       }
 
-      const sentReal = await sendEmail(emailClean, mailSubject, mailHtml, `"AI-POWERED HUMAN SAFETY ALERT" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`);
+      const sentReal = await sendSmsNotification([phoneNumber], message);
       
       if (!sentReal) {
-        console.log(`[SERVER_AUTH] [SIMULATION] ${type} email to ${emailClean}:\nSubject: ${mailSubject}`);
-        if (adminDb) {
-          try {
-            await adminDb.collection("simulated_emails").add({
-              to: emailClean,
-              subject: mailSubject,
-              html: mailHtml,
-              type,
-              timestamp: new Date().toISOString()
-            });
-          } catch (dbErr: any) {
-            console.warn(`[SERVER_AUTH_DB_WARN] Failed to write simulated email to Firestore (GCP/IAM permission limit): ${dbErr.message}`);
-          }
-        }
+        console.log(`[SERVER_NOTIFY] [SIMULATION] ${type} SMS to ${emailClean}:\nMessage: ${message}`);
       } else {
-        console.log(`[SERVER_AUTH] ${type} notification email sent via API to ${emailClean}`);
+        console.log(`[SERVER_NOTIFY] ${type} notification SMS sent via API to ${emailClean}`);
       }
 
       res.json({
@@ -1014,93 +861,68 @@ async function startServer() {
       });
 
     } catch (error: any) {
-      console.error("[AUTH_API_ERR] Failed to send auth notification:", error);
+      console.error("[NOTIFY_API_ERR] Failed to send auth notification:", error);
       res.status(500).json({ status: "error", message: error.message || "Internal server error." });
     }
   });
 
-  // SEND SOS EMAIL ALERT
-  app.post("/api/email/send-sos-alert", async (req, res) => {
-    const { contacts, senderName, message, location } = req.body;
-    if (!contacts || !senderName) {
-      return res.status(400).json({ status: "error", message: "Contacts and senderName are required." });
+  // SEND SOS SMS ALERT
+  app.post("/api/notification/send-sos-alert", async (req, res) => {
+    let { contacts, primaryContacts, secondaryContacts, senderName, message, location } = req.body;
+    if (!contacts) {
+      contacts = [...(primaryContacts || []), ...(secondaryContacts || [])];
+    }
+    if (!senderName) {
+      return res.status(400).json({ status: "error", message: "SenderName is required." });
     }
 
     try {
-      const emailContacts = contacts.filter((c: any) => c.email && c.email.trim());
-      if (emailContacts.length === 0) {
-        return res.json({ status: "success", message: "No contacts with email addresses to notify." });
-      }
-
-      const mailSubject = `[CRITICAL SOS ALERT] Emergency Signal from ${senderName.toUpperCase()}`;
-      const mapLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : "Unavailable";
-      
-      const results: any[] = [];
-
-      for (const contact of emailContacts) {
-        const toEmail = contact.email.trim();
-        const contactName = contact.name || "Emergency Contact";
-
-        const mailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 3px solid #dc2626; border-radius: 12px; background-color: #fef2f2;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <span style="background-color: #dc2626; color: white; padding: 8px 16px; border-radius: 5px; font-weight: 900; font-size: 16px; letter-spacing: 2px;">CRITICAL EMERGENCY ALERT</span>
-            </div>
-            <h2 style="color: #dc2626; font-weight: 900; margin-top: 0; font-size: 20px;">AI-POWERED HUMAN SAFETY ALERT SOS Signal</h2>
-            <p>Hello ${contactName},</p>
-            <p><strong>${senderName.toUpperCase()}</strong> has triggered a critical SOS emergency signal via AI-POWERED HUMAN SAFETY ALERT!</p>
-            
-            <div style="background-color: white; border-left: 5px solid #dc2626; padding: 15px; margin: 20px 0; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              <p style="margin: 0; font-weight: bold; color: #7f1d1d;">SENDER STATUS:</p>
-              <p style="margin: 5px 0 0 0; font-size: 15px; font-style: italic;">"${message}"</p>
-            </div>
-
-            <div style="background-color: white; border-left: 5px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              <p style="margin: 0; font-weight: bold; color: #1e3a8a;">LAST KNOWN COORDINATES:</p>
-              <p style="margin: 8px 0;"><a href="${mapLink}" style="background-color: #3b82f6; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 12px; display: inline-block;">View Location on Google Maps</a></p>
-              <p style="margin: 0; font-size: 11px; color: #6b7280; font-family: monospace; word-break: break-all;">Link: ${mapLink}</p>
-            </div>
-
-            <p style="color: #b91c1c; font-weight: bold;">Please coordinate assistance or contact local authorities immediately.</p>
-            
-            <hr style="border: none; border-top: 1px solid #fca5a5; margin: 20px 0;" />
-            <p style="font-size: 11px; color: #9ca3af; margin: 0;">This transmission was generated securely by AI-POWERED HUMAN SAFETY ALERT Emergency Services.</p>
-          </div>
-        `;
-
-        const success = await sendEmail(toEmail, mailSubject, mailHtml, `"SafetyAlert" <${process.env.SMTP_USER || "benjaminrose5050@gmail.com"}>`);
-        
-        if (success) {
-          results.push({ email: toEmail, status: "sent" });
-        } else {
-          console.log(`[SERVER_SOS_EMAIL] [SIMULATION] SOS alert to ${toEmail} for sender ${senderName}`);
-          if (adminDb) {
-            try {
-              await adminDb.collection("simulated_emails").add({
-                to: toEmail,
-                subject: mailSubject,
-                html: mailHtml,
-                type: "sos_alert",
-                timestamp: new Date().toISOString()
-              });
-            } catch (dbErr: any) {
-              console.warn(`[SERVER_SOS_DB_WARN] Failed to write simulated SOS email to Firestore (GCP/IAM permission limit): ${dbErr.message}`);
-            }
-          }
-          results.push({ email: toEmail, status: "simulated" });
+      const smsContacts = [];
+      const seenPhones = new Set();
+      for (const c of contacts) {
+        if (c.phone && c.phone.trim() && !seenPhones.has(c.phone.trim())) {
+          seenPhones.add(c.phone.trim());
+          smsContacts.push(c);
         }
       }
+      
+      if (smsContacts.length === 0) {
+        return res.json({ status: "success", message: "No contacts with phone numbers to notify." });
+      }
 
-      const allSent = results.every(r => r.status === "sent");
+      const mapLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : "Location Unavailable";
+      const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const results = [];
+      for (const contact of smsContacts) {
+        const smsMessage = `[Ai-POWERED SOS]
+SENDER: ${senderName}
+CONTACT: ${contact.phone}
+STATUS: ${message || "Please help me, I am in danger."}
+LOCATION: ${mapLink}
+TIME: ${time}
+REF: ${req.body.ref || "unknown"}`;
+
+        results.push(await sendSmsNotification([contact.phone], smsMessage));
+      }
+      
+      const sentReal = results.every(res => res === true);
+      
+      if (!sentReal) {
+        console.log(`[SOS_ALERT] [SIMULATION] SOS SMS process completed with some simulation.`);
+      } else {
+        console.log(`[SOS_ALERT] SOS SMS sent via API to ${smsContacts.length} contacts.`);
+      }
+
       res.json({
         status: "success",
-        results,
-        message: allSent ? "SOS alert emails dispatched successfully." : "SOS alert emails processed (some may be simulated)."
+        sentReal,
+        simulated: !sentReal,
+        message: `SOS alert processed successfully.`
       });
 
     } catch (error: any) {
-      console.error("[SOS_EMAIL_ERR] Failed to send SOS alert email:", error);
-      res.status(500).json({ status: "error", message: error.message || "Internal server error dispatching SOS emails." });
+      console.error("[SOS_API_ERR] Failed to send SOS alert:", error);
+      res.status(500).json({ status: "error", message: error.message || "Internal server error." });
     }
   });
 
@@ -1147,10 +969,10 @@ async function startServer() {
     }
 
     try {
-      const response = await (genAI as any).models.generateContent({
-        model: "gemini-1.5-flash",
+      const response = await genAI.models.generateContent({
+        model: "gemini-3.5-flash",
         config: {
-          systemInstruction: "You are a safety expert. Analyze the following reported incident and provide safety tips and a threat assessment level (Low, Medium, High, Critical). Keep it concise.",
+          systemInstruction: "You are a versatile AI companion specialized in personal safety, health, and wellness. Analyze the reported incident or query, provide relevant safety tips, health first-aid advice, and a threat assessment where appropriate. Keep responses concise, supportive, and informative.",
         },
         contents: `Incident: ${description}\nLocation: ${location}`,
       });
@@ -1160,6 +982,69 @@ async function startServer() {
     } catch (error: any) {
       console.error("[AI_ERR] Threat analysis failed:", error);
       res.status(500).json({ status: "error", message: "Failed to analyze threat via AI." });
+    }
+  });
+
+  // SECURITY AI CHAT ENDPOINT
+  app.post("/api/ai/chat", async (req, res) => {
+    const { message, history } = req.body;
+
+    if (!genAI) {
+      return res.status(503).json({ 
+        status: "error", 
+        message: "AI capability is not initialized." 
+      });
+    }
+
+    try {
+      // Convert history to Gemini contents format
+      const contents = (history || []).map((msg: any) => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+      contents.push({ role: 'user', parts: [{ text: message }] });
+
+      // Helper for retry
+      const sendMessageWithRetry = async (contents: any, retries = 5): Promise<any> => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            return await genAI!.models.generateContent({
+              model: "gemini-3.5-flash",
+              config: {
+                systemInstruction: "You are a versatile and supportive AI companion specialized in personal safety, health, wellness, and general support. Provide expert advice on safety, health first-aid, and wellness best practices. Be a comforting and helpful companion when the user is lonely or needs someone to talk to. IMPORTANT: Do not use markdown bolding (double asterisks) in your responses. Use simple, plain text for emphasis.",
+              },
+              contents: contents,
+            });
+          } catch (error: any) {
+            console.error(`[AI_ERR] Chat attempt ${i + 1} failed:`, error);
+            
+            // Robust detection for 503
+            let errorCode = error.status || (error.error && error.error.code) || error.code;
+            
+            // If still not detected, try parsing string representation
+            if (!errorCode) {
+              const errStr = JSON.stringify(error);
+              if (errStr.includes('"code":503') || errStr.includes('"status":503') || errStr.includes('503')) {
+                errorCode = 503;
+              }
+            }
+            
+            console.log(`[AI_DEBUG] Detected error code: ${errorCode}`);
+
+            if (errorCode === 503 && i < retries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1))); // Increased backoff
+              continue;
+            }
+            throw error;
+          }
+        }
+      };
+
+      const response = await sendMessageWithRetry(contents);
+      res.json({ status: "success", response: response.text });
+    } catch (error: any) {
+      console.error("[AI_ERR] Chat failed:", error);
+      res.status(500).json({ status: "error", message: "Failed to get response via AI." });
     }
   });
 
