@@ -19,20 +19,15 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with persistency for "Local-First" behavior
 // This ensures data is saved inside the device locally.
-const dbId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || '(default)';
+const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "" 
+  ? firebaseConfig.firestoreDatabaseId 
+  : '(default)';
 
 // Using persistentSingleTabManager with forceOwnership: true is the absolute safest approach.
 // This completely avoids any IndexedDB locking/assertion failures (e.g. "Unexpected state")
