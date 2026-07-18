@@ -167,10 +167,12 @@ export interface Comment {
 export interface Message {
   id: string;
   senderId: string;
-  receiverId: string;
+  receiverId?: string;
   content: string;
   timestamp: any;
   read: boolean;
+  status?: 'Submitted' | 'Delivered' | 'Failed';
+  type?: 'sms' | 'chat';
 }
 
 export interface Friendship {

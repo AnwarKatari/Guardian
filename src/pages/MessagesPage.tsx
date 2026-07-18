@@ -379,7 +379,15 @@ export default function MessagesPage({ recipientId, setActiveTab }: MessagesPage
                      )}>
                         <span className="text-[8px] font-black uppercase tracking-widest italic">{formatDate(msg.timestamp)}</span>
                         {isMe && (
-                           <CheckCheck size={10} className={msg.read ? "text-blue-500" : "text-neutral-400"} />
+                           <>
+                              {msg.type === 'sms' && (
+                                 <span className={cn(
+                                    "text-[8px] font-black uppercase mr-2",
+                                    msg.status === 'Failed' ? 'text-red-500' : 'text-neutral-400'
+                                 )}>{msg.status}</span>
+                              )}
+                              <CheckCheck size={10} className={msg.read ? "text-blue-500" : "text-neutral-400"} />
+                           </>
                         )}
                      </div>
                    </motion.div>

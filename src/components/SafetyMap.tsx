@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Incident, Alert, UserProfile } from '../types';
 import { useLocation } from '../contexts/LocationContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useSafety } from '../contexts/SafetyEngineContext';
 import { Shield, AlertCircle, Map as MapIconLucide, Navigation, Download, HardDrive, CheckCircle2, X, AlertTriangle, History, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -29,6 +32,34 @@ function RecenterMap({ center }: { center: [number, number] }) {
       map.setView(center, map.getZoom());
     }
   }, [center, map]);
+  return null;
+}
+
+function Routing({ start, end }: { start: [number, number]; end: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || !start || !end || isNaN(start[0]) || isNaN(start[1]) || isNaN(end[0]) || isNaN(end[1])) return;
+    
+    const routingControl = L.Routing.control({
+      waypoints: [L.latLng(start[0], start[1]), L.latLng(end[0], end[1])],
+      show: false,
+      addWaypoints: false,
+      fitSelectedRoutes: true,
+    }).addTo(map);
+
+    return () => {
+      if (map && routingControl) {
+        try {
+          // Check if control is still on map before removing
+          if (map.hasLayer(routingControl as any) || (map as any)._controls?.includes(routingControl)) {
+            map.removeControl(routingControl);
+          }
+        } catch (e) {
+          console.error("Error removing routing control:", e);
+        }
+      }
+    };
+  }, [map, start, end]);
   return null;
 }
 
@@ -72,9 +103,35 @@ function MapResizeTrigger({ isFullscreen }: { isFullscreen: boolean }) {
   return null;
 }
 
+
+function SafetyEngine({ safeZones, triggerSOS }: { safeZones: any[], triggerSOS: () => void }) {
+  const map = useMap();
+  const { location } = useLocation();
+
+  useEffect(() => {
+    if (!location || safeZones.length === 0) return;
+    const isInside = safeZones.some(zone => {
+       const dist = map.distance([zone.location.lat, zone.location.lng], [location.latitude, location.longitude]);
+       return dist < zone.radius;
+    });
+    if (!isInside) triggerSOS();
+  }, [location, safeZones, map, triggerSOS]);
+
+  return (
+    <>
+      {safeZones.map(zone => (
+        <Circle key={zone.id} center={[zone.location.lat, zone.location.lng]} radius={zone.radius} pathOptions={{color: 'green'}} />
+      ))}
+    </>
+  );
+}
+
 export default function SafetyMap() {
   const { location } = useLocation();
   const { user, profile } = useAuth();
+  const { triggerSOS } = useSafety();
+  const [safeZones, setSafeZones] = useState<any[]>([]);
+  const [route, setRoute] = useState<[number, number] | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [circleMembers, setCircleMembers] = useState<UserProfile[]>([]);
@@ -85,6 +142,29 @@ export default function SafetyMap() {
   const [mapLayer, setMapLayer] = useState("road");
   const [historyLocations, setHistoryLocations] = useState<{ id: string; lat: number; lng: number; timestamp: string }[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [services, setServices] = useState<{ id: string, type: 'hospital' | 'police' | 'fire', name: string, lat: number, lng: number }[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'users', user.uid, 'safeZones'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setSafeZones(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, [user]);
+
+  useEffect(() => {
+    if (!location) return;
+    // Generate mock services near current location
+    const newServices = [
+      { id: 'h1', type: 'hospital', name: 'City Hospital', lat: location.latitude + 0.003, lng: location.longitude + 0.003 },
+      { id: 'h2', type: 'hospital', name: 'General Clinic', lat: location.latitude - 0.004, lng: location.longitude + 0.002 },
+      { id: 'p1', type: 'police', name: 'Central Police', lat: location.latitude + 0.005, lng: location.longitude - 0.004 },
+      { id: 'p2', type: 'police', name: 'District Station', lat: location.latitude - 0.006, lng: location.longitude - 0.003 },
+      { id: 'f1', type: 'fire', name: 'Main Fire Station', lat: location.latitude + 0.001, lng: location.longitude - 0.002 },
+    ] as const;
+    setServices(newServices as any);
+  }, [location]);
 
   useEffect(() => {
     if (!user) return;
@@ -271,6 +351,24 @@ export default function SafetyMap() {
          </button>
       </div>
 
+      {/* Service Finder - Moved to Bottom Left */}
+      <div className="absolute bottom-20 left-4 z-[1001]">
+         <select onChange={(e) => {
+             const val = e.target.value;
+             if (location) {
+                 // Simulate nearest service by adding a small offset
+                 const nearest = services.find(s => s.type === val);
+                 if (nearest) setRoute([nearest.lat, nearest.lng]);
+                 else setRoute(null);
+             }
+         }} className="p-3 rounded-xl bg-white shadow-lg text-sm font-bold text-neutral-700 border border-neutral-200">
+             <option value="">Find Service</option>
+             <option value="hospital">Nearest Hospital</option>
+             <option value="police">Nearest Police</option>
+             <option value="fire">Nearest Fire Station</option>
+         </select>
+      </div>
+
       <MapContainer 
         center={center} 
         zoom={15} 
@@ -286,6 +384,17 @@ export default function SafetyMap() {
         />
         
         <RecenterMap center={center} />
+        <SafetyEngine safeZones={safeZones} triggerSOS={triggerSOS} />
+        {route && location && <Routing start={[location.latitude, location.longitude]} end={route} />}
+
+        {services.map(service => (
+           <Marker key={service.id} position={[service.lat, service.lng]}>
+              <Popup>
+                <div className="font-bold text-sm">{service.name}</div>
+                <div className="text-xs text-neutral-500 capitalize">{service.type} Station</div>
+              </Popup>
+           </Marker>
+        ))}
 
         {/* Fit Bounds to History Locations to make sure all places are shown */}
         {mapLayer === "history" && historyLocations.length > 0 && (

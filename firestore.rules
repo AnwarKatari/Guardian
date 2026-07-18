@@ -52,9 +52,19 @@ service cloud.firestore {
         )
       );
 
+      // Messages Subcollection
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+
       // Location History Subcollection
       match /locationHistory/{locationId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isSignedIn();
+      }
+
+      // Safe Zones Subcollection
+      match /safeZones/{zoneId} {
+        allow read, write: if isSignedIn();
       }
     }
 
@@ -234,15 +244,7 @@ service cloud.firestore {
 
     // Messages Collection
     match /messages/{messageId} {
-      allow read: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-      allow list: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-      allow create: if isVerified() && incoming().senderId == request.auth.uid && (
-        incoming().keys().hasAll(['senderId', 'receiverId', 'content', 'timestamp', 'read']) &&
-        incoming().keys().size() == 5
-      );
-      allow update: if isVerified() && resource.data.receiverId == request.auth.uid && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['read'])
-      );
+      allow read, write: if true;
     }
 
     // Temporary password reset tokens for custom SMTP recovery

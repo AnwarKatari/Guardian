@@ -12,7 +12,7 @@ interface SafetyEngineType {
   systemLogs: string[];
   addLog: (msg: string) => void;
   triggerSOS: () => Promise<boolean>;
-  sendAutomatedEmailSOSAlerts: (contacts: any[], userName: string, message: string, location: any) => Promise<boolean>;
+  sendAutomatedEmailSOSAlerts: (contacts: any[], userName: string, message: string, location: any, ref: string, userPhone: string) => Promise<boolean>;
   micStatus: 'granted' | 'denied' | 'prompt' | 'unsupported';
   setMicStatus: (status: 'granted' | 'denied' | 'prompt' | 'unsupported') => void;
   lastSOSConfirmed: boolean;
@@ -77,7 +77,9 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     contacts: any[],
     userName: string,
     message: string,
-    location: any
+    location: any,
+    ref: string,
+    userPhone: string
   ) => {
     // 1. Parse the trusted contacts list
     const primaryContacts = contacts.filter(c => c.email && c.email.trim() !== '' && c.priority === 'primary');
@@ -100,7 +102,9 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
           secondaryContacts,
           senderName: userName,
           message: message,
-          location: location
+          location: location,
+          ref: ref,
+          userPhone: userPhone
         })
       });
       
@@ -207,6 +211,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
 
     // Prepare SMS Message - MANDATORY LOCATION DATA
     const isOffline = !navigator.onLine;
+    const ref = crypto.randomUUID(); // Generate unique ref
     const coordinatesString = locationObj 
       ? `\nGPS: ${locationObj.lat.toFixed(6)}, ${locationObj.lng.toFixed(6)}`
       : "";
@@ -223,7 +228,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
     
     // EMERGENCY MESSAGE CONSTRUCTION
     const senderContact = currentProfile?.phoneNumber ? `\nCONTACT: ${currentProfile.phoneNumber}` : "";
-    const finalMessage = `[Ai-POWERED SOS]\nSENDER: ${userName.toUpperCase()}${senderContact}\nSTATUS: ${sosBody}\nLOCATION: https://www.google.com/maps?q=${locationObj?.lat},${locationObj?.lng}\nTIME: ${timestamp}\nREF: ${currentUser.email}`;
+    const finalMessage = `[SOS] ${userName.toUpperCase()}: ${sosBody}. Loc: https://maps.google.com/?q=${locationObj?.lat},${locationObj?.lng}`;
     
     // Broadcast to targets
     let isSuccessfullySent = false;
@@ -248,7 +253,9 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
               body: JSON.stringify({
                 phoneNumbers,
                 message: finalMessage,
-                senderName: sanitizedSenderName
+                senderName: sanitizedSenderName,
+                senderId: user?.uid,
+                ref: ref
               })
             });
             const data = await response.json();
@@ -272,7 +279,7 @@ export function SafetyEngineProvider({ children }: { children: React.ReactNode }
 
         // Unconditionally trigger the email alert system alongside SMS for maximum resilience
         addLog("EMAIL_RELAY: Initiating resilient email backup broadcast...");
-        const emailSent = await sendAutomatedEmailSOSAlerts(allContactsToNotify, userName, sosBody, locationObj);
+        const emailSent = await sendAutomatedEmailSOSAlerts(allContactsToNotify, userName, sosBody, locationObj, ref, currentProfile?.phoneNumber || "N/A");
         if (emailSent) {
           isSuccessfullySent = true;
           if (usedRelay === "UNKNOWN") {

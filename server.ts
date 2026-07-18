@@ -4,13 +4,24 @@ import path from "path";
 import dotenv from "dotenv";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
-import { initializeApp, getApps } from "firebase-admin/app";
-import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
+import { getFirestore, Firestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
 import fs from "fs";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 
 dotenv.config();
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_PORT === "465",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 const BASE_PATH = process.cwd();
 
@@ -32,17 +43,16 @@ let adminAuth: Auth | null = null;
 try {
   if (firebaseConfig.projectId) {
     const adminApp = getApps().length === 0
-      ? initializeApp({
-          projectId: firebaseConfig.projectId,
-        })
+      ? initializeApp()
       : getApps()[0];
 
     // Handle custom Firestore database ID
-    const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "" && firebaseConfig.firestoreDatabaseId !== "(default)"
-      ? firebaseConfig.firestoreDatabaseId
-      : undefined;
+    // const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "" && firebaseConfig.firestoreDatabaseId !== "(default)"
+    //   ? firebaseConfig.firestoreDatabaseId
+    //   : undefined;
+    const dbId = undefined; // Force (default)
     
-    adminDb = getFirestore(adminApp, dbId);
+    adminDb = getFirestore(adminApp);
     adminAuth = getAuth(adminApp);
   } else {
     console.warn("[FIREBASE_ADMIN] Missing projectId. Admin capabilities disabled.");
@@ -267,52 +277,44 @@ async function fetchUserByEmailFromRest(email: string): Promise<any> {
   }
 }
 
-// Global in-memory store for temporary reset tokens to guarantee absolute reliability
+// Global in-memory store for temporary reset tokens.
 const inMemoryResetTokens = new Map<string, { email: string; createdAt: string; expiresAt: string }>();
 
-// HELPER: Overwrite or create a temp_resets token using secure in-memory store.
+// HELPER: Save/Update token in memory
 async function saveTempResetToRest(token: string, email: string, createdAt: string, expiresAt: string): Promise<void> {
   inMemoryResetTokens.set(token, { email, createdAt, expiresAt });
 }
 
-// HELPER: Fetch a temp_resets token by ID from secure in-memory store.
+// HELPER: Get token from memory
 async function getTempResetFromRest(token: string): Promise<any> {
-  const tokenData = inMemoryResetTokens.get(token);
-  if (!tokenData) {
-    return null;
-  }
-  return tokenData;
+  return inMemoryResetTokens.get(token);
 }
 
-// HELPER: Delete a temp_resets token from secure in-memory store.
+// HELPER: Delete token from memory
 async function deleteTempResetFromRest(token: string): Promise<void> {
-  const deleted = inMemoryResetTokens.delete(token);
-  if (deleted) {
-    console.log(`[IN_MEMORY_SUCCESS] Successfully cleaned up reset token ${token}.`);
-  }
+  inMemoryResetTokens.delete(token);
 }
 
-// Global in-memory store for email sign-up OTPs to guarantee absolute reliability
+// Global in-memory store for email sign-up OTPs.
+// TODO: Replace with Redis for true scalability (100M+ users).
 const inMemoryOTPs = new Map<string, { otp: string; createdAt: string; expiresAt: string }>();
 
-// HELPER: Save OTP for an email
+// Global in-memory store for SOS requests rate limiting
+const recentSosDispatches = new Map<string, number>();
+
+// HELPER: Save OTP for an email in memory
 async function saveOtp(email: string, otp: string, createdAt: string, expiresAt: string): Promise<void> {
   inMemoryOTPs.set(email.toLowerCase().trim(), { otp, createdAt, expiresAt });
 }
 
-// HELPER: Get OTP for an email
+// HELPER: Get OTP for an email from memory
 async function getOtp(email: string): Promise<any> {
-  const otpData = inMemoryOTPs.get(email.toLowerCase().trim());
-  if (!otpData) {
-    return null;
-  }
-  return otpData;
+  return inMemoryOTPs.get(email.toLowerCase().trim());
 }
 
-// HELPER: Delete OTP for an email
+// HELPER: Delete OTP for an email from memory
 async function deleteOtp(email: string): Promise<void> {
   inMemoryOTPs.delete(email.toLowerCase().trim());
-  console.log(`[IN_MEMORY_SUCCESS] Successfully cleaned up OTP for ${email}.`);
 }
 
 // HELPER: Log simulated emails cleanly without blocking network operations.
@@ -338,6 +340,9 @@ async function sendTacticalSms(phoneNumbers: string[], message: string, senderNa
 
   const normalizedNumbers = phoneNumbers.map(normalizeGH).filter(n => n.length >= 10);
   
+  // Truncate message to 160 chars to avoid splitting
+  const truncatedMessage = message.length > 160 ? message.substring(0, 160) : message;
+
   // Filter out numbers on cooldown
   const now = Date.now();
   const eligibleNumbers = normalizedNumbers.filter(num => {
@@ -378,19 +383,21 @@ async function sendTacticalSms(phoneNumbers: string[], message: string, senderNa
       const response = await axios.post(`https://sms.arkesel.com/api/v2/sms/send`, {
         sender: tacticalSender,
         recipients: eligibleNumbers,
-        message: message
+        message: truncatedMessage,
+        sandbox: false
       }, {
         headers: { 'api-key': arkeselKey },
         timeout: 15000 // Increased timeout for reliability
       });
 
       const resData = response.data;
+      console.log(`[TACTICAL_SMS_ARKESEL] Response:`, JSON.stringify(resData));
       if (resData && (resData.status === "success" || resData.code === "1000" || resData.code === 1000 || resData.code === 101)) {
         success = true;
         relayUsed = "ARKESEL_v2";
         console.log(`[TACTICAL_SMS_SUCCESS] Arkesel v2 confirmed.`);
       } else {
-        console.warn("[TACTICAL_SMS_WARN] Arkesel rejected request:", JSON.stringify(resData));
+        console.warn("[TACTICAL_SMS_WARN] Arkesel rejected request or returned unexpected status:", JSON.stringify(resData));
         lastErrorDetails = resData;
       }
     } catch (e: any) {
@@ -530,6 +537,19 @@ async function startServer() {
 
       // 5. Determine configuration & send via Arkesel
       
+      // SEND VIA EMAIL (SMTP)
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_USER,
+          to: emailClean,
+          subject: mailSubject,
+          html: mailHtml,
+        });
+        console.log(`[AUTH_EMAIL] Verification OTP sent successfully to ${emailClean}`);
+      } catch (emailErr) {
+        console.error(`[AUTH_EMAIL_ERR] Failed to send email to ${emailClean}:`, emailErr);
+      }
+      
       if (!process.env.ARKESEL_API_KEY) {
         return res.status(500).json({ status: "error", message: "SMS API key is not configured." });
       }
@@ -609,6 +629,24 @@ async function startServer() {
       await deleteOtp(emailClean);
 
       console.log(`[SERVER_AUTH] Successfully verified email OTP for: ${emailClean}`);
+
+      // SEND SUCCESS EMAIL
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_USER,
+          to: emailClean,
+          subject: "Verification Successful - AI-POWERED HUMAN SAFETY ALERT",
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #e5e5e5; border-radius: 8px;">
+              <h2 style="color: #2563eb;">Verification Successful</h2>
+              <p>Your email has been verified for the AI-POWERED HUMAN SAFETY ALERT security console.</p>
+              <p>You can now sign in and complete your setup.</p>
+            </div>
+          `,
+        });
+      } catch (emailErr) {
+        console.error(`[AUTH_EMAIL_ERR] Failed to send success email to ${emailClean}:`, emailErr);
+      }
 
       res.json({
         status: "success",
@@ -957,7 +995,18 @@ async function startServer() {
 
   // SEND SOS SMS ALERT
   app.post("/api/notification/send-sos-alert", async (req, res) => {
-    let { contacts, primaryContacts, secondaryContacts, senderName, message, location } = req.body;
+    let { contacts, primaryContacts, secondaryContacts, senderName, message, location, ref } = req.body;
+    
+    // De-duplication check
+    if (ref && ref !== "unknown") {
+      const dispatchKey = `email-${ref}`;
+      const now = Date.now();
+      if (recentSosDispatches.has(dispatchKey)) {
+         return res.status(429).json({ status: "error", message: "SOS request already processed." });
+      }
+      recentSosDispatches.set(dispatchKey, now);
+    }
+    
     if (!contacts) {
       contacts = [...(primaryContacts || []), ...(secondaryContacts || [])];
     }
@@ -982,24 +1031,54 @@ async function startServer() {
       const mapLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : "Location Unavailable";
       const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       const results = [];
-      for (const contact of smsContacts) {
-        const smsMessage = `[Ai-POWERED SOS]
-SENDER: ${senderName}
-CONTACT: ${contact.phone}
-STATUS: ${message || "Please help me, I am in danger."}
-LOCATION: ${mapLink}
-TIME: ${time}
-REF: ${req.body.ref || "unknown"}`;
+      const emailResults = [];
 
-        results.push(await sendSmsNotification([contact.phone], smsMessage));
+      const phonesToNotify = [...new Set(contacts.filter(c => c.phone && c.phone.trim()).map(c => c.phone.trim()))] as string[];
+
+      // Email
+      for (const contact of contacts) {
+        if (contact.email && contact.email.trim()) {
+          try {
+            await transporter.sendMail({
+              from: process.env.SMTP_FROM || process.env.SMTP_USER,
+              to: contact.email,
+              subject: `[SOS ALERT] Urgent Assistance Needed: ${senderName}`,
+              html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #e63946;">URGENT SOS ALERT</h1>
+                  </div>
+                  <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                    <p><strong>Sender:</strong> ${senderName}</p>
+                    <p><strong>Phone:</strong> ${req.body.userPhone || "N/A"}</p>
+                    <p><strong>Status:</strong> ${message || "Please help me, I am in danger."}</p>
+                    <p><strong>Time:</strong> ${time}</p>
+                    <p><strong>Ref:</strong> ${req.body.ref || "unknown"}</p>
+                  </div>
+                  <div style="margin-top: 20px; text-align: center;">
+                    <a href="${mapLink}" style="background-color: #e63946; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Location on Map</a>
+                  </div>
+                </div>
+              `
+            });
+            emailResults.push(true);
+          } catch (e) {
+            console.error(`[SOS_ALERT] Failed to send email to ${contact.email}:`, e);
+            emailResults.push(false);
+          }
+        }
       }
       
       const sentReal = results.every(res => res === true);
+      const emailSentReal = emailResults.every(res => res === true);
       
       if (!sentReal) {
         console.log(`[SOS_ALERT] [SIMULATION] SOS SMS process completed with some simulation.`);
       } else {
         console.log(`[SOS_ALERT] SOS SMS sent via API to ${smsContacts.length} contacts.`);
+      }
+      if (emailSentReal) {
+        console.log(`[SOS_ALERT] SOS Email sent to contacts.`);
       }
 
       res.json({
@@ -1138,7 +1217,17 @@ REF: ${req.body.ref || "unknown"}`;
 
   // TACTICAL SMS DISPATCH ENDPOINT
   app.post("/api/sms/dispatch", async (req, res) => {
-    const { phoneNumbers, message, senderName } = req.body;
+    const { phoneNumbers, message, senderName, ref, senderId } = req.body;
+    
+    // De-duplication check
+    if (ref && ref !== "unknown") {
+      const dispatchKey = `sms-${ref}`;
+      const now = Date.now();
+      if (recentSosDispatches.has(dispatchKey)) {
+         return res.status(429).json({ status: "error", message: "SOS request already processed." });
+      }
+      recentSosDispatches.set(dispatchKey, now);
+    }
     
     if (!phoneNumbers || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
       return res.status(400).json({ status: "error", message: "No target units specified" });

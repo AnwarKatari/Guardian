@@ -1,0 +1,18 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "emergencyServices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "type",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "geohash",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ]
+}

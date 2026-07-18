@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Send, Bot, Sparkles } from 'lucide-react';
+import { Send, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { saveMessage, subscribeToMessages } from '../services/chatService';
 
 export default function ConversationalHub({ setActiveTab }: { setActiveTab?: (tab: string) => void }) {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string, createdAt?: any }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [safetyStatus, setSafetyStatus] = useState<'Safe' | 'Needs Help'>('Safe');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -32,14 +32,15 @@ export default function ConversationalHub({ setActiveTab }: { setActiveTab?: (ta
   }, []);
 
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading) return;
+    if (!user) {
+      setIsFetching(false);
+      return;
+    }
 
-    const messagesRef = collection(db, 'users', user.uid, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => doc.data() as { role: 'user' | 'assistant', content: string });
-      setMessages(msgs);
+    const unsubscribe = subscribeToMessages(user.uid, (msgs) => {
+      setMessages(msgs as { role: 'user' | 'assistant', content: string, createdAt?: any }[]);
+      setIsFetching(false);
     });
 
     return () => unsubscribe();
@@ -58,11 +59,7 @@ export default function ConversationalHub({ setActiveTab }: { setActiveTab?: (ta
 
     try {
       // Add user message
-      await addDoc(collection(db, 'users', user.uid, 'messages'), {
-        role: 'user',
-        content: userMessage,
-        createdAt: serverTimestamp()
-      });
+      await saveMessage(user.uid, 'user', userMessage);
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -79,11 +76,7 @@ export default function ConversationalHub({ setActiveTab }: { setActiveTab?: (ta
 
       if (data.status === 'success') {
         // Add assistant message
-        await addDoc(collection(db, 'users', user.uid, 'messages'), {
-          role: 'assistant',
-          content: data.response,
-          createdAt: serverTimestamp()
-        });
+        await saveMessage(user.uid, 'assistant', data.response);
       } else {
         throw new Error('AI response failed');
       }
@@ -114,29 +107,37 @@ export default function ConversationalHub({ setActiveTab }: { setActiveTab?: (ta
       </header>
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg, i) => (
-          <motion.div 
-            key={i}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}
-          >
-            <div className={cn(
-              "px-4 py-2 rounded-2xl max-w-[80%] text-sm shadow-sm",
-              msg.role === 'user' 
-                ? "bg-[#DCF8C6] text-neutral-900 rounded-tr-none" 
-                : "bg-white text-neutral-800 rounded-tl-none border border-neutral-100"
-            )}>
-              {msg.content}
-            </div>
-          </motion.div>
-        ))}
-        {isLoading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-            <div className="px-4 py-2 rounded-2xl bg-white text-neutral-500 text-sm border border-neutral-100">Thinking...</div>
-          </motion.div>
+        {isFetching ? (
+          <div className="flex justify-center items-center h-full text-neutral-500 text-sm">
+            Loading chat history...
+          </div>
+        ) : (
+          <>
+            {messages.map((msg, i) => (
+              <motion.div 
+                key={msg.createdAt?.toMillis() || i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}
+              >
+                <div className={cn(
+                  "px-4 py-2 rounded-2xl max-w-[80%] text-sm shadow-sm",
+                  msg.role === 'user' 
+                    ? "bg-[#DCF8C6] text-neutral-900 rounded-tr-none" 
+                    : "bg-white text-neutral-800 rounded-tl-none border border-neutral-100"
+                )}>
+                  {msg.content}
+                </div>
+              </motion.div>
+            ))}
+            {isLoading && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                <div className="px-4 py-2 rounded-2xl bg-white text-neutral-500 text-sm border border-neutral-100">Thinking...</div>
+              </motion.div>
+            )}
+            <div ref={chatEndRef} />
+          </>
         )}
-        <div ref={chatEndRef} />
       </div>
 
       <div className="p-4 bg-[#F0F0F0]">
