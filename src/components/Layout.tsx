@@ -244,8 +244,7 @@ export default function Layout({
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
           <SidebarNavItem icon={Home} label="Home Dashboard" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
           <SidebarNavItem icon={MapIcon} label="Tactical Map" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
-          <SidebarNavItem icon={Users} label="Emergency Network" active={activeTab === 'network'} onClick={() => setActiveTab('network')} badgeCount={pendingConnectionCount} />
-          <SidebarNavItem icon={MessageSquare} label="Encrypted Chats" active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} badgeCount={unreadMsgCount} />
+          <SidebarNavItem icon={MessageSquare} label="AI Chat" active={activeTab === 'conversational-hub'} onClick={() => setActiveTab('conversational-hub')} />
           <SidebarNavItem icon={AlertTriangle} label="SOS" active={activeTab === 'sos'} onClick={() => setActiveTab('sos')} />
           <SidebarNavItem icon={Settings} label="System Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </div>

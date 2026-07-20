@@ -200,9 +200,15 @@ export default function DashboardPage({ setActiveTab }: { setActiveTab?: (tab: s
               </div>
               
               <div className="grid md:grid-cols-3 gap-6">
-                <RecentAlertsWidget firebaseIncidents={incidents} onSelectTab={setActiveTab} />
-                <CommunitySafetyScoreWidget />
-                <ActiveTrustedContactsWidget contacts={profile?.emergencyContacts || []} onSelectTab={setActiveTab} />
+                <div className="bg-white p-6 rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
+                  <RecentAlertsWidget firebaseIncidents={incidents} onSelectTab={setActiveTab} />
+                </div>
+                <div className="bg-white p-6 rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
+                  <CommunitySafetyScoreWidget />
+                </div>
+                <div className="bg-white p-6 rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
+                  <ActiveTrustedContactsWidget contacts={profile?.emergencyContacts || []} onSelectTab={setActiveTab} />
+                </div>
               </div>
             </div>
 
