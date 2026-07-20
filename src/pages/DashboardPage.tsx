@@ -199,14 +199,14 @@ export default function DashboardPage({ setActiveTab }: { setActiveTab?: (tab: s
                 <span className="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100/80">Modular Grid v2.5</span>
               </div>
               
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+                <div className="bg-white p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <RecentAlertsWidget firebaseIncidents={incidents} onSelectTab={setActiveTab} />
                 </div>
-                <div className="bg-white p-6 rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
+                <div className="bg-white p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <CommunitySafetyScoreWidget />
                 </div>
-                <div className="bg-white p-6 rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
+                <div className="bg-white p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-neutral-100 shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <ActiveTrustedContactsWidget contacts={profile?.emergencyContacts || []} onSelectTab={setActiveTab} />
                 </div>
               </div>

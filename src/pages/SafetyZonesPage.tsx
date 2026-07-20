@@ -58,7 +58,7 @@ export default function SafetyZonesPage() {
   };
 
   return (
-    <div className="p-6 space-y-10 pb-32 h-full bg-[#050505] text-white font-mono relative overflow-hidden">
+    <div className="p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-10 pb-32 h-full bg-[#050505] text-white font-mono relative overflow-hidden">
       {/* Background HUD Ambience */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black,transparent)] pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-full h-1 bg-emerald-600/20 animate-pulse pointer-events-none" />
@@ -66,7 +66,7 @@ export default function SafetyZonesPage() {
       <header className="space-y-2 relative z-10 pt-4">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-4 bg-emerald-500 rounded-full" />
-          <h2 className="text-xl font-black italic tracking-tighter uppercase leading-none">SAFETY_ANCHORS</h2>
+          <h2 className="text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none">SAFETY_ANCHORS</h2>
         </div>
         <p className="text-neutral-500 text-[9px] font-black uppercase tracking-[0.34em] leading-relaxed max-w-sm italic">
           Define localized geofence parameters. Automatic triggering of SOS protocols upon unauthorized departures.
@@ -77,7 +77,7 @@ export default function SafetyZonesPage() {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => setIsAdding(true)}
-        className="w-full p-4 bg-emerald-600 text-white rounded-2xl font-black italic tracking-[0.1em] uppercase shadow-2xl flex items-center justify-center gap-3 relative overflow-hidden group z-10"
+        className="w-full p-3 sm:p-4 bg-emerald-600 text-white rounded-xl sm:rounded-2xl font-black italic tracking-[0.1em] uppercase shadow-2xl flex items-center justify-center gap-3 relative overflow-hidden group z-10"
       >
         <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
         <Navigation size={18} className="relative z-10 group-hover:rotate-45 transition-transform" />
