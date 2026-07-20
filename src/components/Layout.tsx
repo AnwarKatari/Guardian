@@ -273,15 +273,6 @@ export default function Layout({
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Network button */}
-              <button onClick={() => setActiveTab('network')} className={cn("p-3 rounded-2xl transition-all border", activeTab === 'network' ? "bg-blue-600 text-white border-blue-600" : "text-neutral-500 bg-white border-neutral-200/60 hover:bg-neutral-50")}>
-                <Users size={18} />
-              </button>
-              {/* Messages button */}
-              <button onClick={() => setActiveTab('messages')} className={cn("p-3 rounded-2xl transition-all border", activeTab === 'messages' ? "bg-blue-600 text-white border-blue-600" : "text-neutral-500 bg-white border-neutral-200/60 hover:bg-neutral-50")}>
-                <MessageSquare size={18} />
-              </button>
-
               {/* Notification Bell */}
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
@@ -318,12 +309,6 @@ export default function Layout({
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setActiveTab('network')} className={cn("p-2.5 rounded-[18px] transition-all", activeTab === 'network' ? "bg-blue-600 text-white" : "text-neutral-500 hover:bg-neutral-100")}>
-              <Users size={20} />
-            </button>
-            <button onClick={() => setActiveTab('messages')} className={cn("p-2.5 rounded-[18px] transition-all", activeTab === 'messages' ? "bg-blue-600 text-white" : "text-neutral-500 hover:bg-neutral-100")}>
-              <MessageSquare size={20} />
-            </button>
             <button 
               onClick={() => setShowNotifications(!showNotifications)}
               className="p-2.5 rounded-[18px] transition-all relative text-neutral-500 hover:bg-neutral-100"
